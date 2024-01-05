@@ -1,0 +1,7 @@
+# nix
+.envrc
+/.direnv/
+/build
+/lakefile.olean
+/lake-packages/*
+/.lake
