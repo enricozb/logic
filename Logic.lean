@@ -1,3 +1,1 @@
--- This module serves as the root of the `Logic` library.
--- Import modules here that should be built as part of the library.
-import «Logic».Basic
+import «Logic».Chapters
