@@ -59,7 +59,7 @@ inductive Signature.Formula {S: Signature} (n : ℕ) where
   /-- Variables. -/
   | var (i : Fin n) : Formula n
   /-- Function application. -/
-  | app (a : ℕ) (s : S.symbols a) (φs : [S.Formula n; a]) : Formula n 
+  | app (a : ℕ) (s : S.symbols a) (φs : [S.Formula n; a]) : Formula n
 
 /--
   The interpretation of a set of symbols or formulas. Also called a
@@ -86,10 +86,10 @@ instance : Interpretation 𝓑 where
 
 instance : Tilde (𝓑.Formula n) := ⟨fun φ => .app 1 .not ![φ]⟩
 instance : Wedge (𝓑.Formula n) := ⟨fun φ₁ φ₂ => .app 2 .and ![φ₁, φ₂]⟩
-instance : Vee (𝓑.Formula n) := ⟨fun φ₁ φ₂ => .app 2 .or ![φ₁, φ₂]⟩
+instance : Vee   (𝓑.Formula n) := ⟨fun φ₁ φ₂ => .app 2 .or ![φ₁, φ₂]⟩
 
 /--
-  A model, or _valuation_ which, in the case of boolean signatures, is just 
+  A model, or _valuation_ which, in the case of boolean signatures, is just
   a boolean vector.
 -/
 structure Model (n : ℕ) where
