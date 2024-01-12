@@ -155,7 +155,11 @@ class IsLinear (f : [Bool; n] → Bool) where
   )
   hf_repr : formula.represents f
 
-/-- Exercise 1. If a function `f` is linear, its representation is unique. -/
+/--
+  Exercise 1. If a function `f` is linear, its representation is unique.
+  This is equivalent to the constants `aᵢ` being equal in both representations,
+  as they uniquely determine `φ(x₁, .., xₙ) = a₀ + (a₁ ∧ x₁) + .. + (aₙ ∧ xₙ)`.
+-/
 theorem linear_is_unique (l₁ l₂ : IsLinear f) : l₁.constants = l₂.constants := by
   -- likely gonna be by induction on `n`, with `n = 0` being just the constant case.
   sorry
