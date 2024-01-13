@@ -102,11 +102,24 @@ def Model.value [I : Interpretation S] (w : Model n) (φ : S.Formula n) : Bool :
   | .app _ s φs => I.fns s (fun i => w.value (φs i))
 
 /--
-  A boolean formula `φ` represents a boolean function `n` if they are equal
+  A boolean formula `φ` represents a boolean function `f` if they are equal
   under all valuations.
 -/
 def Signature.Formula.represents [I : Interpretation S] (φ : S.Formula n) (f : [Bool; n] → Bool) : Prop :=
   ∀ (w : Model n), w.value φ = f w.vec
+
+/--
+  A boolean formula `φ` always represents a boolean function.
+-/
+def Signature.Formula.function [I : Interpretation S] (φ : S.Formula n) : ([Bool; n] → Bool) :=
+  (fun b => (Model.mk b).value φ)
+
+/--
+  A boolean formula `φ` always represents it's boolean function.
+-/
+theorem Signature.Formula.represents_function [I : Interpretation S] (φ : S.Formula n) :
+  φ.represents φ.function := (fun _ => rfl)
+
 
 namespace Exercises
 

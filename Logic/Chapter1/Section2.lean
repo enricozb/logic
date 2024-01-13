@@ -7,6 +7,8 @@ namespace Section2
 open Chapter1.Section1
 open Chapter1.Section1.Notation
 
+section Utils
+
 /-- `Bool` can be finitely enumerated. -/
 instance : FinEnum Bool := ⟨
   -- card
@@ -24,6 +26,23 @@ instance : FinEnum Bool := ⟨
     · rw [if_neg h]; exact (Fin.eq_one_of_neq_zero x h).symm
   )
 ⟩
+
+/-- Negation of boolean tuples. -/
+@[simp, reducible]
+instance {n : ℕ} : Tilde ([Bool; n]) where
+  tilde (b : [Bool; n]) (i : Fin n) := Bool.not (b i)
+
+/-- Negation of boolean functions. -/
+@[simp, reducible]
+instance {n : ℕ} : Tilde ([Bool; n] → Bool) where
+  tilde (f : [Bool; n] → Bool) (b : [Bool; n]) := Bool.not (f b)
+
+/-- Negation of boolean models. -/
+@[simp, reducible]
+instance {n : ℕ} : Tilde (Model n) where
+  tilde (w : Model n) := ⟨~w.vec⟩
+
+end Utils
 
 /--
   Two formulas (of possibly different signatures) are semantically equivalent
@@ -163,7 +182,8 @@ def dnf (f : [Bool; n + 1] → Bool) : 𝓑.Formula (n + 1) :=
   | b::bs' => ⋁ (entry ∘ (b::bs').get)
 
 /--
-  Every boolean function of at least one variable is represented by its DNF.
+  Theorem 2.1: Every boolean function of at least one variable is represented
+  by its DNF.
 -/
 theorem dnf_represents (f : [Bool; n + 1] → Bool) : (dnf f).represents f := by
   rw [Signature.Formula.represents]
@@ -218,7 +238,7 @@ def cnf (f : [Bool; n + 1] → Bool) : 𝓑.Formula (n + 1) :=
     ⋁ (fun i => if b i then ~(.var i) else .var i)
 
   /- A list of boolean vectors that _do not_ satisfy `f`. -/
-  let bs := (FinEnum.pi.enum (fun _ => Bool)).filter (fun b => ¬ f b)
+  let bs := (FinEnum.pi.enum (fun _ => Bool)).filter (~f)
 
   match h : bs.length with
   | 0 => (.var 0) ⋎ ~(.var 0)
@@ -246,6 +266,118 @@ def Signature.functional_complete (S : Signature) [Interpretation S] :=
 theorem 𝓑.functional_complete : Signature.functional_complete 𝓑 := by
   intro n f
   exact ⟨dnf f, dnf_represents f⟩
+
+-- TODO: functional completeness for `{¬, ∧}` and `{¬, ∨}`.
+
+/-- The dual of a boolean formula or boolean function. -/
+class Dual (α : Sort _) where
+  dual : α → α
+
+instance {n : ℕ} : Dual ([Bool; n] → Bool) where
+  dual (f : [Bool; n] → Bool) (b : [Bool; n]) := Bool.not (f (~b))
+
+/-- The dual operator on formulas of signature `{¬, ∧, ∨}`. -/
+def 𝓑.dual (φ : 𝓑.Formula n) : 𝓑.Formula n :=
+  match φ with
+  | .var i => .var i
+  | .app 1 s φs => .app 1 s (fun i => 𝓑.dual (φs i))
+  | .app 2 .or φs => .app 2 .and (fun i => 𝓑.dual (φs i))
+  | .app 2 .and φs => .app 2 .or (fun i => 𝓑.dual (φs i))
+
+instance {n : ℕ} : Dual (𝓑.Formula n) := ⟨𝓑.dual⟩
+
+scoped[Chapter1.Section2] postfix:max "ᵈ" => Dual.dual
+
+/-- The dual operation is its own inverse on formulas. -/
+lemma dual_inverse_formula (φ : 𝓑.Formula n) : φᵈᵈ = φ := by
+  induction' φ with _ a s φs φs_ih
+  · rfl
+  · simp only [Dual.dual] at φs_ih
+    match a with
+    | 1 => match s with
+      | .not =>
+        simp only [Dual.dual, 𝓑.dual]
+        conv => lhs; arg 3; intro i; rw [φs_ih i]
+    | 2 => match s with
+      | .or =>
+        simp only [Dual.dual, 𝓑.dual]
+        conv => lhs; arg 3; intro i; rw [φs_ih i]
+      | .and =>
+        simp only [Dual.dual, 𝓑.dual]
+        conv => lhs; arg 3; intro i; rw [φs_ih i]
+
+/-- The dual operation is its own inverse on functions. -/
+lemma dual_inverse_function (f : [Bool; n] → Bool) : fᵈᵈ = f := by
+  simp only [Dual.dual, instTildeForAllFinBool, Bool.not_not]
+
+/--
+  Theorem 2.4: The duality principle for two-valued logic.
+-/
+theorem duality_principle (φ : 𝓑.Formula n) (hf : φ.represents f) :
+  φᵈ.represents fᵈ := by
+
+  rw [Signature.Formula.represents]
+  intro w
+  induction' φ with _ a s φs φs_ih generalizing f
+  · simp only [Dual.dual]
+    rw [(by rfl : ~w.vec = (~w).vec), ←hf (~w)]
+    simp only [Model.value, instTildeModel, instTildeForAllFinBool, Bool.not_not]
+  · match a with
+    | 1 => match s with
+      | .not =>
+        let f₁ := (φs 0).function
+        have hf₁ : (φs 0).represents f₁ := (φs 0).represents_function
+        have ih := @φs_ih 0 f₁ hf₁
+        have hff₁ : ∀ b, f b = Bool.not (f₁ b) := by
+          intro bvec
+          let b := Model.mk bvec
+          rw [(by rfl : bvec = b.vec), ←hf b, ←hf₁ b]
+          simp only [Model.value, Interpretation.fns]
+
+        simp only [Model.value, Interpretation.fns]
+        conv at ih => lhs; simp only [Dual.dual]
+        rw [ih]
+        simp only [Dual.dual, Signature.Formula.function]
+        rw [(by rfl : ~w.vec = (~w).vec), hf₁ (~w), hff₁]
+
+    | 2 =>
+      let f₁ := (φs 0).function
+      have hf₁ : (φs 0).represents f₁ := (φs 0).represents_function
+      have ih₁ := @φs_ih 0 f₁ hf₁
+
+      let f₂ := (φs 1).function
+      have hf₂ : (φs 1).represents f₂ := (φs 1).represents_function
+      have ih₂ := @φs_ih 1 f₂ hf₂
+
+      match s with
+      | .or =>
+        suffices hff₁₂ : ∀ b, f b = Bool.or (f₁ b) (f₂ b)
+        · simp only [Model.value, Interpretation.fns]
+          conv at ih₁ => lhs; simp only [Dual.dual]
+          conv at ih₂ => lhs; simp only [Dual.dual]
+          rw [ih₁, ih₂]
+          simp only [Dual.dual, Signature.Formula.function]
+          rw [(by rfl : ~w.vec = (~w).vec), hf₁ (~w), hf₂ (~w), hff₁₂]
+          simp only [Bool.not_or]
+        intro bvec
+        let b := Model.mk bvec
+        rw [(by rfl : bvec = b.vec), ←hf b, ←hf₁ b, ←hf₂ b]
+        simp only [Model.value, Interpretation.fns]
+
+      | .and =>
+        suffices hff₁₂ : ∀ b, f b = Bool.and (f₁ b) (f₂ b)
+        · simp only [Model.value, Interpretation.fns]
+          conv at ih₁ => lhs; simp only [Dual.dual]
+          conv at ih₂ => lhs; simp only [Dual.dual]
+          rw [ih₁, ih₂]
+          simp only [Dual.dual, Signature.Formula.function]
+          rw [(by rfl : ~w.vec = (~w).vec), hf₁ (~w), hf₂ (~w), hff₁₂]
+          simp only [Bool.not_and]
+        intro bvec
+        let b := Model.mk bvec
+        rw [(by rfl : bvec = b.vec), ←hf b, ←hf₁ b, ←hf₂ b]
+        simp only [Model.value, Interpretation.fns]
+
 
 end Section2
 end Chapter1
