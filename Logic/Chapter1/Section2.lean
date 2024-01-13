@@ -158,11 +158,9 @@ def dnf (f : [Bool; n + 1] → Bool) : 𝓑.Formula (n + 1) :=
     ⋀ (fun i => if b i then .var i else ~(.var i))
 
   /- A list of boolean vectors that satisfy `f`. -/
-  let bs := (satisfying_inputs f)
-
-  match bs with
+  match satisfying_inputs f with
   | [] => (.var 0) ⋏ ~(.var 0)
-  | b::bs' => ⋁ (fun i : Fin (bs'.length + 1) => entry ((b::bs').get i))
+  | b::bs' => ⋁ (entry ∘ (b::bs').get)
 
 /--
   Every boolean function of at least one variable is represented by its DNF.
@@ -231,6 +229,23 @@ def cnf (f : [Bool; n + 1] → Bool) : 𝓑.Formula (n + 1) :=
 -/
 theorem cnf_represents (f : [Bool; n + 1] → Bool) : (cnf f).represents f := by
   sorry
+
+/--
+  A signature is _functional complete_ if every boolean function (of at least
+  one variable) has a reprentation.
+
+  In keeping with the text, boolean functions of zero variables must be ignored.
+  The signature `{¬, ∧, ∨}` cannot represent a boolean function of zero
+  variables because formulas of zero variables do not exist, as there are no
+  _prime_ formulas.
+-/
+def Signature.functional_complete (S : Signature) [Interpretation S] :=
+  ∀ {n}, ∀ f : [Bool; n + 1] → Bool, ∃ φ : S.Formula (n + 1), φ.represents f
+
+/-- The signature `{¬, ∧, ∨}` is functional complete. -/
+theorem 𝓑.functional_complete : Signature.functional_complete 𝓑 := by
+  intro n f
+  exact ⟨dnf f, dnf_represents f⟩
 
 end Section2
 end Chapter1
