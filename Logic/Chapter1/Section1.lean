@@ -12,19 +12,16 @@ scoped[Chapter1.Section1] notation "[" α ";" n "]" => Fin n → α
 /- Notation for formulas, and convenience notations such as `⋀`, `⋁`, etc. -/
 namespace Notation
 
-class Tee      (α : Sort _) where tee      : α
-class Void     (α : Sort _) where void     : α
 class Tilde    (α : Sort _) where tilde    : α → α
 class Vee      (α : Sort _) where vee      : α → α → α
 class Wedge    (α : Sort _) where wedge    : α → α → α
 class Oplus    (α : Sort _) where oplus    : α → α → α
+class Arrow    (α : Sort _) where arrow    : α → α → α
 
 class BigVee   (α : Sort _) where bigvee   : ∀ {n}, [α; n + 1] → α
 class BigWedge (α : Sort _) where bigwedge : ∀ {n}, [α; n + 1] → α
 class BigOplus (α : Sort _) where bigoplus : ∀ {n}, [α; n + 1] → α
 
-scoped[Chapter1.Section1.Notation] notation "⊤"    => Tee.tee
-scoped[Chapter1.Section1.Notation] notation "⊥"    => Void.void
 scoped[Chapter1.Section1.Notation] prefix:75 "~"   => Tilde.tilde
 scoped[Chapter1.Section1.Notation] infixr:69 " ⋏ " => Wedge.wedge
 scoped[Chapter1.Section1.Notation] infixr:68 " ⋎ " => Vee.vee
@@ -32,6 +29,7 @@ scoped[Chapter1.Section1.Notation] infixr:68 " ⊕ " => Oplus.oplus
 scoped[Chapter1.Section1.Notation] prefix:75 "⋀"   => BigWedge.bigwedge
 scoped[Chapter1.Section1.Notation] prefix:75 "⋁"   => BigVee.bigvee
 scoped[Chapter1.Section1.Notation] prefix:75 "Σᵇ"  => BigOplus.bigoplus
+scoped[Chapter1.Section1.Notation] infixr:60 " ⟶ " => Arrow.arrow
 
 /-- Convenience definition of big operators. -/
 def bigop {a : ℕ} (op : α → α → α) (φs : [α; a+1]) :=
@@ -39,9 +37,10 @@ def bigop {a : ℕ} (op : α → α → α) (φs : [α; a+1]) :=
     | 0 => φs 1
     | _+1 => op (φs 0) (bigop op (Fin.tail φs))
 
-instance [Oplus α] : BigOplus α := ⟨bigop Oplus.oplus⟩
-instance [Wedge α] : BigWedge α := ⟨bigop Wedge.wedge⟩
-instance [Vee α]   : BigVee α   := ⟨bigop Vee.vee⟩
+instance [Oplus α]         : BigOplus α := ⟨bigop Oplus.oplus⟩
+instance [Wedge α]         : BigWedge α := ⟨bigop Wedge.wedge⟩
+instance [Vee α]           : BigVee α   := ⟨bigop Vee.vee⟩
+instance [Tilde α] [Vee α] : Arrow α    := ⟨fun α β => (~α) ⋎ β⟩
 
 end Notation
 
@@ -87,6 +86,8 @@ instance : Interpretation 𝓑 where
 instance : Tilde (𝓑.Formula n) := ⟨fun φ => .app 1 .not ![φ]⟩
 instance : Wedge (𝓑.Formula n) := ⟨fun φ₁ φ₂ => .app 2 .and ![φ₁, φ₂]⟩
 instance : Vee   (𝓑.Formula n) := ⟨fun φ₁ φ₂ => .app 2 .or ![φ₁, φ₂]⟩
+instance : Top (𝓑.Formula (n + 1)) := ⟨(.var 0) ⋎ ~(.var 0)⟩
+instance : Bot (𝓑.Formula (n + 1)) := ⟨(.var 0) ⋏ ~(.var 0)⟩
 
 /--
   A model, or _valuation_ which, in the case of boolean signatures, is just
@@ -145,8 +146,8 @@ instance : Interpretation 𝓑ₗ where
       | .xor => fun b => Bool.xor (b 0) (b 1)
     | _+3 => fun _ => by contradiction
 
-instance : Tee   (𝓑ₗ.Formula n) := ⟨.app 0 .true ![]⟩
-instance : Void  (𝓑ₗ.Formula n) := ⟨.app 0 .false ![]⟩
+instance : Top   (𝓑ₗ.Formula n) := ⟨.app 0 .true ![]⟩
+instance : Bot   (𝓑ₗ.Formula n) := ⟨.app 0 .false ![]⟩
 instance : Tilde (𝓑ₗ.Formula n) := ⟨fun φ => .app 1 .not ![φ]⟩
 instance : Wedge (𝓑ₗ.Formula n) := ⟨fun φ₁ φ₂ => .app 2 .and ![φ₁, φ₂]⟩
 instance : Oplus (𝓑ₗ.Formula n) := ⟨fun φ₁ φ₂ => .app 2 .xor ![φ₁, φ₂]⟩
