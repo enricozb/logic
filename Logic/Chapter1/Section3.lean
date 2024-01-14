@@ -25,7 +25,7 @@ instance {n : ℕ} {S : Signature} [Interpretation S] : Satisfies (Model n) (S.F
 
 /-- A model can satisfy a set of formulas, `w ⊨ X`. -/
 instance {n : ℕ} {S : Signature} [Interpretation S] : Satisfies (Model n) (Set (S.Formula n)) where
-  satisfies (w : Model n) (X : Set (S.Formula n)) := ∀ φ ∈ X, w.value φ = true
+  satisfies (w : Model n) (X : Set (S.Formula n)) := ∀ φ ∈ X, w ⊨ φ
 
 end Notation
 
@@ -152,11 +152,59 @@ theorem mem_logical_consequence {X : Set (S.Formula n)} {φ : S.Formula n}
 
 /-- Logical consequences are preserved under supersets. -/
 theorem superset_logical_consequence {X X' : Set (S.Formula n)} {φ : S.Formula n}
-  (hmem : φ ∈ X) (hsat : X ⊨ φ) (hsub : X ⊆ X') : X' ⊨ φ := sorry
+  (hsat : X ⊨ φ) (hsub : X ⊆ X') : X' ⊨ φ := by
+  intro w hw
+  suffices hX : w ⊨ X
+  · exact hsat w hX
+  intro φ hφ
+  exact hw φ (hsub hφ)
 
 /-- Logical consequences are transitive over sets. -/
 theorem trans_logical_consequence {X Y : Set (S.Formula n)} {φ : S.Formula n}
-  (h₁ : X ⊨ Y) (h₂ : Y ⊨ φ) : X ⊨ φ := sorry
+  (h₁ : X ⊨ Y) (h₂ : Y ⊨ φ) : X ⊨ φ := by
+  intro w hw
+  have : w ⊨ Y := fun ψ hψ => h₁ ψ hψ w hw
+  exact h₂ w this
+
+/-- A _substitution_, mapping variables to formulas. -/
+structure Substitution (n m : ℕ) (S : Signature) where
+  map : Fin n → S.Formula m
+
+/-- An extension of a substitution `σ` mapping formulas to formulas. -/
+def Substitution.map_φ {σ : Substitution n m S} (φ : S.Formula n) : S.Formula m :=
+  match φ with
+  | .var i => σ.map i
+  | .app a s φs => .app a s (fun i => σ.map_φ (φs i))
+
+/-- An extension of a substitution `σ` mapping sets of formulas to sets of formulas. -/
+def Substitution.map_X {σ : Substitution n m S} (X : Set (S.Formula n)) : Set (S.Formula m) :=
+  {σ.map_φ φ | φ ∈ X}
+
+/--
+  An extension of a substitution `σ` mapping models to models. This is defined
+  as the substitution that satisfies `(σ w) φ = w (σ φ)`.
+
+  Note that while `σ.map_φ` maps `Formula n → Formula m`, `σ.map_w` maps
+  `Model m → Model n` (note the swapping of `n` and `m`).
+-/
+def Substitution.map_w {σ : Substitution n m S} (w : Model m) : Model n :=
+  ⟨fun i => w.value (σ.map_φ (.var i))⟩
+
+theorem substitution_satisfies (σ : Substitution n m S) (w : Model m) (φ : S.Formula n) :
+  w ⊨ σ.map_φ φ ↔ σ.map_w w ⊨ φ := sorry
+
+/-- Logical consequences are invariant under substitutions. -/
+theorem substitution_invariance (σ : Substitution n m S)
+  (X : Set (S.Formula n)) (φ : S.Formula n) (hX : X ⊨ φ) : (σ.map_X X) ⊨ (σ.map_φ φ) := by
+    intro w hw
+    have hσwX : σ.map_w w ⊨ X := by
+      intro ψ hψ
+      apply (substitution_satisfies σ w ψ).mp
+      apply hw (σ.map_φ ψ)
+      exact ⟨ψ, hψ, rfl⟩
+
+    have hσwφ : σ.map_w w ⊨ φ := hX (Substitution.map_w w) hσwX
+    exact (substitution_satisfies σ w φ).mpr hσwφ
 
 end Section3
 end Chapter1
