@@ -160,6 +160,7 @@ theorem superset_logical_consequence {X X' : Set (S.Formula n)} {φ : S.Formula 
   exact hw φ (hsub hφ)
 
 /-- Logical consequences are transitive over sets. -/
+-- TODO: `φ` here could also be set of formulas `Z`.
 theorem trans_logical_consequence {X Y : Set (S.Formula n)} {φ : S.Formula n}
   (h₁ : X ⊨ Y) (h₂ : Y ⊨ φ) : X ⊨ φ := by
   intro w hw
@@ -167,44 +168,101 @@ theorem trans_logical_consequence {X Y : Set (S.Formula n)} {φ : S.Formula n}
   exact h₂ w this
 
 /-- A _substitution_, mapping variables to formulas. -/
+-- TODO: substitutions should be specific to `𝓑` it seems.
 structure Substitution (n m : ℕ) (S : Signature) where
   map : Fin n → S.Formula m
 
 /-- An extension of a substitution `σ` mapping formulas to formulas. -/
-def Substitution.map_φ {σ : Substitution n m S} (φ : S.Formula n) : S.Formula m :=
+def Substitution.map_formula (σ : Substitution n m S) (φ : S.Formula n) : S.Formula m :=
   match φ with
   | .var i => σ.map i
-  | .app a s φs => .app a s (fun i => σ.map_φ (φs i))
+  | .app a s φs => .app a s (fun i => σ.map_formula (φs i))
+
+scoped[Chapter1.Section3] infixr:69 "ᶠ " => Substitution.map_formula
 
 /-- An extension of a substitution `σ` mapping sets of formulas to sets of formulas. -/
-def Substitution.map_X {σ : Substitution n m S} (X : Set (S.Formula n)) : Set (S.Formula m) :=
-  {σ.map_φ φ | φ ∈ X}
+def Substitution.map_set (σ : Substitution n m S) (X : Set (S.Formula n)) : Set (S.Formula m) :=
+  {σᶠ φ | φ ∈ X}
+
+scoped[Chapter1.Section3] infixr:69 "ˣ " => Substitution.map_set
 
 /--
   An extension of a substitution `σ` mapping models to models. This is defined
   as the substitution that satisfies `(σ w) φ = w (σ φ)`.
 
-  Note that while `σ.map_φ` maps `Formula n → Formula m`, `σ.map_w` maps
+  Note that while `σᶠ` maps `Formula n → Formula m`, `σʷ` maps
   `Model m → Model n` (note the swapping of `n` and `m`).
 -/
-def Substitution.map_w {σ : Substitution n m S} (w : Model m) : Model n :=
-  ⟨fun i => w.value (σ.map_φ (.var i))⟩
+def Substitution.map_model (σ : Substitution n m S) (w : Model m) : Model n :=
+  ⟨fun i => w.value (σᶠ (.var i))⟩
 
-theorem substitution_satisfies (σ : Substitution n m S) (w : Model m) (φ : S.Formula n) :
-  w ⊨ σ.map_φ φ ↔ σ.map_w w ⊨ φ := sorry
+scoped[Chapter1.Section3] infixr:69 "ʷ " => Substitution.map_model
+
+/-- A useful relationship between models and formulas under substitutions. -/
+lemma substitution_satisfies (σ : Substitution n m 𝓑) (w : Model m) (φ : 𝓑.Formula n) :
+  w ⊨ σᶠ φ ↔ σʷ w ⊨ φ := by
+  induction' φ with i a s φs φs_ih
+  · rfl
+  · match a with
+    | 1 => match s with
+      | .not =>
+        simp only [Satisfies.satisfies, Model.value, Interpretation.fns, Bool.not_eq_true']
+        have hφs₀ := Iff.not (φs_ih 0)
+        simp [Satisfies.satisfies, Bool.not_eq_true] at hφs₀
+        exact hφs₀
+    | 2 => match s with
+      | .or =>
+        simp only [Satisfies.satisfies, Model.value, Interpretation.fns, Bool.or_eq_true]
+        have hφs := Iff.or (φs_ih 0) (φs_ih 1)
+        simp [Satisfies.satisfies] at hφs
+        exact hφs
+      | .and =>
+        simp only [Satisfies.satisfies, Model.value, Interpretation.fns, Bool.and_eq_true]
+        have hφs := Iff.and (φs_ih 0) (φs_ih 1)
+        simp [Satisfies.satisfies] at hφs
+        exact hφs
 
 /-- Logical consequences are invariant under substitutions. -/
-theorem substitution_invariance (σ : Substitution n m S)
-  (X : Set (S.Formula n)) (φ : S.Formula n) (hX : X ⊨ φ) : (σ.map_X X) ⊨ (σ.map_φ φ) := by
+theorem substitution_invariance (σ : Substitution n m 𝓑)
+  (X : Set (𝓑.Formula n)) (φ : 𝓑.Formula n) (hX : X ⊨ φ) : σˣ X ⊨ σᶠ φ := by
     intro w hw
-    have hσwX : σ.map_w w ⊨ X := by
+    have hσwX : σʷ w ⊨ X := by
       intro ψ hψ
       apply (substitution_satisfies σ w ψ).mp
-      apply hw (σ.map_φ ψ)
+      apply hw (σᶠ ψ)
       exact ⟨ψ, hψ, rfl⟩
 
-    have hσwφ : σ.map_w w ⊨ φ := hX (Substitution.map_w w) hσwX
+    have hσwφ : σʷ w ⊨ φ := hX (σ.map_model w) hσwX
     exact (substitution_satisfies σ w φ).mpr hσwφ
+
+/--
+  The (semantic) deduction theorem for propositional logic: `X, α ⊨ β ↔ X ⊨ α → β`.
+-/
+theorem deduction_theorem (X : Set (𝓑.Formula n)) (α β : 𝓑.Formula n) :
+  (X ∪ {α}) ⊨ β ↔ X ⊨ (α ⟶ β) := by
+  apply Iff.intro
+  · intro h w hw
+    simp only [Satisfies.satisfies, Model.value, Interpretation.fns, Bool.or_eq_true, Bool.not_eq_true']
+    by_cases hα : w.value α = true
+    · suffices hw' : w ⊨ (X ∪ {α})
+      · exact Or.inr (h w hw')
+      simp only [Satisfies.satisfies, Set.union_singleton, Set.mem_insert_iff, forall_eq_or_imp]
+      exact ⟨hα, hw⟩
+    · rw [Bool.not_eq_true] at hα
+      exact Or.inl hα
+
+  · intro h w hw
+    have h := h w
+    simp [Satisfies.satisfies, Model.value, Interpretation.fns, Arrow.arrow] at h
+    simp [Satisfies.satisfies] at hw
+    have ⟨hα, hX⟩ := hw
+    apply Or.elim (h hX)
+    · intro hα'; rw [hα] at hα'; contradiction
+    · exact id
+
+namespace Exercises
+
+end Exercises
 
 end Section3
 end Chapter1
