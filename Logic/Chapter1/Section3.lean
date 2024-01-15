@@ -262,6 +262,89 @@ theorem deduction_theorem (X : Set (𝓑.Formula n)) (α β : 𝓑.Formula n) :
 
 namespace Exercises
 
+/-- Exercise 3. The rule of disjunctive case distinction. -/
+theorem disjunctive_case_distinction (X : Set (𝓑.Formula n)) (α β γ : 𝓑.Formula n)
+  (hα : (X ∪ {α}) ⊨ γ) (hβ : (X ∪ {β}) ⊨ γ) : (X ∪ {α ⋎ β}) ⊨ γ := by
+  sorry
+
+/--
+  A consequence relation, typically denoted `⊢`, is a relation of sets of
+  formulas and formulas of a signature with the following properties:
+
+  - _reflexivity_: `α ∈ X → X ⊢ α`.
+  - _monotonicity_: `X ⊢ α → X ⊆ X' → X' ⊢ α`.
+  - _transitivity_: `X ⊢ Y → Y ⊢ α → X ⊢ α`.
+-/
+class ConsequenceRel {S : Signature} (r : ∀ {n}, Set (S.Formula n) → S.Formula n → Prop) where
+  /-- Reflexivity -/
+  refl {n} (X : Set (S.Formula n)) (α : S.Formula n) : α ∈ X → r X α
+  /-- Monotonicity -/
+  mono {n} (X X' : Set (S.Formula n)) (α : S.Formula n) : r X α → X ⊆ X' → r X' α
+  /-- Transitivity -/
+  trans {n} (X Y : Set (S.Formula n)) (α : S.Formula n) : (∀ β ∈ Y, r X β) → r Y α → r X α
+
+class HasConsequenceRel (S : Signature) where
+  rel : ∀ {n}, Set (S.Formula n) → S.Formula n → Prop
+  consequence : ConsequenceRel rel
+
+abbrev HasConsequenceRel.not_rel [C : HasConsequenceRel S] (X : Set (S.Formula n)) (α : S.Formula n) : Prop :=
+  ¬(C.rel X α)
+
+scoped[Chapter1.Section3.Exercises] infixr:67 " ⊢ " => HasConsequenceRel.rel
+scoped[Chapter1.Section3.Exercises] infixr:67 " ⊬ " => HasConsequenceRel.not_rel
+
+/--
+  A set of formulas is consistent if there is some formula that is not a
+  consequence. This is because if `X` is inconsistent then `X ⊢ ⊥`, which
+  implies `X ⊢ α` for any `α`.
+-/
+abbrev consistent [HasConsequenceRel S] (X : (Set (S.Formula n))) := ∃ α, X ⊬ α
+abbrev inconsistent [HasConsequenceRel S] (X : (Set (S.Formula n))) := ¬ consistent X
+
+/--
+  A set of formulas is maximally consistent if any proper extension is
+  inconsistent.
+-/
+abbrev maximally_consistent [HasConsequenceRel S] (X : (Set (S.Formula n))) :=
+  consistent X ∧ ∀ α ∉ X, inconsistent (X ∪ {α})
+
+/--
+  A set of formulas is deductively closed if it contains all formulas that
+  are a consequence of it.
+-/
+abbrev deductively_closed [HasConsequenceRel S] (X : (Set (S.Formula n))) :=
+  ∀ α, X ⊢ α → α ∈ X
+
+/--
+  If a set of formulas is maximally consistent, then it is deductively closed.
+-/
+theorem maximally_consistent_deductively_closed [C : HasConsequenceRel S]
+  (X : Set (S.Formula n)) (hX : maximally_consistent X) : deductively_closed X := by
+  intro α hα
+  apply by_contradiction
+  intro hnmem
+  suffices hXinc : inconsistent X
+  · exact hXinc hX.left
+
+  simp only [not_exists, not_not]
+  intro β
+
+  let Y := X ∪ {α}
+
+  have hY : ∀ φ ∈ Y, X ⊢ φ
+  · intro φ hφ
+    simp only [Set.union_singleton, Set.mem_insert_iff] at hφ
+    apply Or.elim hφ
+    · intro hφα; rw [hφα]; exact hα
+    · intro hφX; exact C.consequence.refl X φ hφX
+
+  have hXαβ : Y ⊢ β
+  · have hXαinc := hX.right α hnmem
+    simp only [not_exists, not_not] at hXαinc
+    exact hXαinc β
+
+  exact C.consequence.trans X Y β hY hXαβ
+
 end Exercises
 
 end Section3
