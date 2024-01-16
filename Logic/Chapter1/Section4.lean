@@ -1,11 +1,13 @@
 import Mathlib.Data.Set.Finite
 import «Logic».Chapter1.Section1
+import «Logic».Chapter1.Section3
 
 namespace Chapter1
 namespace Section4
 
-open Chapter1.Section1 (Signature Interpretation Signature.Formula)
+open Chapter1.Section1 (Signature Interpretation Signature.Formula Model)
 open Chapter1.Section1.Notation
+open Chapter1.Section3.Notation
 
 inductive Unary | not
 inductive Binary | and
@@ -119,23 +121,42 @@ theorem principle_of_rule_induction (G : GentzenClosedRel r) : X ⊢ α → r X 
   case not₁ hp hn => exact G.not₁ hp hn
   case not₂ hp hn => exact G.not₂ hp hn
 
-/-
-
--- TODO: define X ⊨ α again without a typeclass, using the model satisfiability
--- definition. Then state a gentzen closed relation instance for `⊨`.
-
 /-- The logical consequence relation `X ⊨ α` is closed under Gentzen rules. -/
-instance [s : Satisfies (Set (𝓢.Formula n)) (𝓢.Formula n)] : GentzenClosedRel s.satisfies where
-  init := by
-    intro α
-    simp [Satisfies.satisfies] -- r {α} α
-  mono := sorry -- r X α → X ⊆ X' → r X' α
-  and₁ := sorry -- r X α → r X β → r X (α ⋏ β)
-  and₂_left := sorry -- r X (α ⋏ β) → r X α
-  and₂_right := sorry -- r X (α ⋏ β) → r X β
-  not₁ := sorry -- r X α → r X (~α) → r X β
-  not₂ := sorry -- r (X ∪ {α}) β → r (X ∪ {~α}) β → r X β
--/
+instance : GentzenClosedRel (· ⊨ · : Set (𝓢.Formula n) → 𝓢.Formula n → Prop) where
+  init := by intro α; simp [Satisfies.satisfies]
+  mono := by
+    intro X α X' hXα hX w hwX'
+    have hwX : w ⊨ X := by intro φ hφ; exact hwX' φ (hX hφ)
+    exact hXα w hwX
+  and₁ := by
+    intro X α β hXα hXβ w hwX
+    simp [Satisfies.satisfies, Model.value, Interpretation.fns]
+    exact ⟨hXα w hwX, hXβ w hwX⟩
+  and₂_left := by
+    intro X α β hXαβ w hwX
+    simp [Satisfies.satisfies, Model.value, Interpretation.fns] at hXαβ
+    exact (hXαβ w hwX).left
+  and₂_right := by
+    intro X α β hXαβ w hwX
+    simp [Satisfies.satisfies, Model.value, Interpretation.fns] at hXαβ
+    exact (hXαβ w hwX).right
+  not₁ := by
+    intro X α β hp hn w hwX
+    simp [Satisfies.satisfies, Model.value, Interpretation.fns] at hp hn
+    have hαp : w.value α = true := hp w hwX
+    have hαn : w.value α = false := hn w hwX
+    rw [hαp] at hαn
+    contradiction
+
+  not₂ := by
+    intro X α β hp hn w hwX
+    simp [Satisfies.satisfies] at hp hn
+    conv at hn => intro w; simp [Model.value, Interpretation.fns]
+
+    by_cases hα : w.value α = true
+    · exact hp w hα hwX
+    · simp only [Bool.not_eq_true] at hα
+      exact hn w hα hwX
 
 /--
   Theorem 4.1: If `X ⊢ α`, then there is a finite subset `X₀ ⊆ X` such that
@@ -172,6 +193,17 @@ theorem finiteness {n : ℕ} {X : Set (𝓢.Formula n)} {α : 𝓢.Formula n}
   sorry
   sorry
   sorry
+
+
+/--
+  The soundness theorem states that if a formula `α` can be proved from `X`,
+  then it is a logical consequence of `X`. That is, _proofs are sound_.
+-/
+theorem soundness {n : ℕ} {X : Set (𝓢.Formula n)} {α : 𝓢.Formula n} (hX : X ⊢ α) : X ⊨ α := by
+  apply principle_of_rule_induction ?G hX
+
+  -- TODO: this is sensitive to how the instance is named.
+  exact instGentzenClosedRelSetFormula𝓢SatisfiesInstSatisfiesSetFormulaInstInterpretation𝓢
 
 end Section4
 end Chapter1
