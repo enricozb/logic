@@ -275,7 +275,7 @@ theorem disjunctive_case_distinction (X : Set (𝓑.Formula n)) (α β γ : 𝓑
   - _monotonicity_: `X ⊢ α → X ⊆ X' → X' ⊢ α`.
   - _transitivity_: `X ⊢ Y → Y ⊢ α → X ⊢ α`.
 -/
-class ConsequenceRel {S : Signature} (r : ∀ {n}, Set (S.Formula n) → S.Formula n → Prop) where
+structure ConsequenceRel {S : Signature} (r : ∀ {n}, Set (S.Formula n) → S.Formula n → Prop) where
   /-- Reflexivity -/
   refl {n} (X : Set (S.Formula n)) (α : S.Formula n) : α ∈ X → r X α
   /-- Monotonicity -/
