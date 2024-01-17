@@ -1,4 +1,5 @@
 import Mathlib.Data.Set.Finite
+import Mathlib.Order.Zorn
 import «Logic».Chapter1.Section1
 import «Logic».Chapter1.Section3
 
@@ -32,6 +33,7 @@ namespace Calculus
 
 set_option hygiene false
 scoped[Chapter1.Section4.Calculus] infix:27 " ⊢ " => Gentzen
+scoped[Chapter1.Section4.Calculus] infix:27 " ⊬ " => fun X α => ¬ Gentzen X α
 
 /--
   Gentzen Sequents are a relation from sets of formulas to formulas with
@@ -204,6 +206,89 @@ theorem soundness {n : ℕ} {X : Set (𝓢.Formula n)} {α : 𝓢.Formula n} (hX
 
   -- TODO: this is sensitive to how the instance is named.
   exact instGentzenClosedRelSetFormula𝓢SatisfiesInstSatisfiesSetFormulaInstInterpretation𝓢
+
+/--
+  A set of formulas is called consistent if there is some formula `α` that
+  cannot be proved from it. This is because from an inconsistent `X`, `⊥` can
+  be proved, and from `⊥`, anything can be proved.
+-/
+def consistent (X : Set (𝓢.Formula n)) := ∃ α, X ⊬ α
+def inconsistent (X : Set (𝓢.Formula n)) := ¬ consistent X
+
+/--
+  A maximally consistent set of formulas is a consistent set where any proper
+  extension is inconsistent.
+-/
+def maximally_consistent (X : Set (𝓢.Formula n)) := consistent X ∧ ∀ α ∉ X, inconsistent (X ∪ {α})
+
+theorem maximally_consistent_iff (X : Set (𝓢.Formula n)) :
+  maximally_consistent X ↔ ∀ α, α ∈ X ∨ ~α ∈ X := by sorry
+
+/-- Lemma 4.2a: The derivability relation C⁺. -/
+lemma derivable_pos_iff {α : 𝓢.Formula (n + 1)} : X ⊢ α ↔ X ∪ {~α} ⊢ ⊥ := by
+  apply Iff.intro
+  · intro hXα
+    have hXαp : X ∪ {~α} ⊢ α := by
+      apply Gentzen.mono hXα
+      simp only [Set.union_singleton, Set.subset_insert]
+
+    have hXαn : X ∪ {~α} ⊢ ~α := by
+      apply Gentzen.mono Gentzen.init
+      simp only [Set.union_singleton, Set.singleton_subset_iff, Set.mem_insert_iff, true_or]
+
+    exact Gentzen.not₁ hXαp hXαn ⊥
+
+  · intro hXnαbot
+    have hXnα₁ := Gentzen.and₂_left hXnαbot
+    have hXnα₂ := Gentzen.and₂_right hXnαbot
+    have hXnαα : X ∪ {~α} ⊢ α := Gentzen.not₁ hXnα₁ hXnα₂ α
+    exact not_elim hXnαα
+
+/-- Lemma 4.2b: The derivability relation C⁻. -/
+lemma derivable_neg_iff {α : 𝓢.Formula (n + 1)} : X ⊢ ~α ↔ X ∪ {α} ⊢ ⊥ := by
+  sorry
+
+/--
+  Lemma 4.3: Lindenbaum's theorem. A consistent set of formulas `X` can be
+  extended to a maximually consistent set `X' ⊇ X`.
+-/
+lemma consistent_maximal_extension (h : consistent X) : ∃ X', X ⊆ X' ∧ maximally_consistent X' := by
+  let H := {X' | X ⊆ X' ∧ consistent X'}
+  have ⟨X', hX'mem, hX'max⟩ : ∃ X' ∈ H, ∀ Y ∈ H, X' ⊆ Y → Y = X' := by
+    apply zorn_subset
+    intro K hKsub hKchain
+
+    wlog hK : ∃ Y, Y ∈ K
+    · simp only [not_exists] at hK
+      exact ⟨X, ⟨Eq.subset rfl, h⟩, fun Y hY => (hK Y hY).elim⟩
+
+    let U := ⋃₀ K
+    suffices hU : U ∈ H
+    · exact ⟨U, hU, fun Y hY => Set.subset_sUnion_of_mem hY⟩
+
+    apply And.intro
+    -- X ⊆ U
+    · intro x hx
+      simp
+      have ⟨Y, hY⟩ := hK
+      apply Exists.intro Y
+      apply And.intro hY
+      sorry
+
+    -- consistent U
+    · sorry
+
+  have extension_inconsistent : ∀ α ∉ X', inconsistent (X' ∪ {α})
+  · intro α hα hαcons
+    let Y := X' ∪ {α}
+    have hYαsup : X' ⊆ Y := Set.subset_union_left X' {α}
+    have hYmem : Y ∈ H := Set.mem_sep (Set.subset_union_of_subset_left (hX'mem.left) {α}) hαcons
+    have hYeqX := hX'max Y hYmem hYαsup
+    have hαmemY : α ∈ Y := Set.mem_union_right X' rfl
+    rw [←hYeqX] at hα
+    contradiction
+
+  exact ⟨X', hX'mem.left, hX'mem.right, extension_inconsistent⟩
 
 end Section4
 end Chapter1
