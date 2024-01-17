@@ -76,9 +76,12 @@ lemma not_elim (h : X ∪ {~α} ⊢ α) : X ⊢ α := by
     apply Gentzen.mono Gentzen.init hsub
   exact Gentzen.not₂ h₁ h
 
-lemma absurdum (hp : X ∪ {~α} ⊢ β) (hn : X ∪ {~α} ⊢ ~β) : X ⊢ α := by
+lemma absurdum₁ (hp : X ∪ {~α} ⊢ β) (hn : X ∪ {~α} ⊢ ~β) : X ⊢ α := by
   have : X ∪ {~α} ⊢ α := Gentzen.not₁ hp hn α
   exact not_elim this
+
+lemma absurdum₂ {X : Set (𝓢.Formula (n + 1))} (hp : X ⊢ ⊥) : X ⊢ α := by
+  sorry
 
 lemma arrow_elim (h : X ⊢ α ⟶ β) : X ∪ {α} ⊢ β := sorry
 
@@ -252,7 +255,7 @@ lemma derivable_neg_iff {α : 𝓢.Formula (n + 1)} : X ⊢ ~α ↔ X ∪ {α} �
   Lemma 4.3: Lindenbaum's theorem. A consistent set of formulas `X` can be
   extended to a maximually consistent set `X' ⊇ X`.
 -/
-lemma consistent_maximal_extension (h : consistent X) : ∃ X', X ⊆ X' ∧ maximally_consistent X' := by
+lemma consistent_maximal_extension {X : Set (𝓢.Formula (n + 1))} (h : consistent X) : ∃ X', X ⊆ X' ∧ maximally_consistent X' := by
   let H := {X' | X ⊆ X' ∧ consistent X'}
   have ⟨X', hX'mem, hX'max⟩ : ∃ X' ∈ H, ∀ Y ∈ H, X' ⊆ Y → Y = X' := by
     apply zorn_subset
@@ -269,20 +272,34 @@ lemma consistent_maximal_extension (h : consistent X) : ∃ X', X ⊆ X' ∧ max
     apply And.intro
     -- X ⊆ U
     · intro x hx
-      simp
+      simp only [Set.mem_sUnion]
       have ⟨Y, hY⟩ := hK
-      apply Exists.intro Y
-      apply And.intro hY
-      sorry
+      exact ⟨Y, hY, (hKsub hY).left hx⟩
 
     -- consistent U
-    · sorry
+    · apply by_contradiction
+      intro hUinc
+      simp only [consistent, not_exists, not_not] at hUinc
+      have hUbot : U ⊢ ⊥ := hUinc ⊥
+      have ⟨U₀, hU₀fin, hU₀subU, hU₀bot⟩ := finiteness hUbot
+      have hU₀nonempty : Set.Nonempty U₀ := sorry
+      have hU₀contents : ∀ αᵢ ∈ U₀, ∃ Yᵢ ∈ K, αᵢ ∈ Yᵢ := sorry
+      have ⟨Y, hYmemK, hYsup⟩ : ∃ Y ∈ K, U₀ ⊆ Y := sorry
+      have hYbot : Y ⊢ ⊥ := Gentzen.mono hU₀bot hYsup
+      have hYmemH : Y ∈ H := hKsub hYmemK
+      have hYcon : consistent Y := hYmemH.right
+      have hYinc : inconsistent Y := by
+        simp [inconsistent, consistent, not_exists, not_not]
+        intro α
+        exact absurdum₂ hYbot
+
+      contradiction
 
   have extension_inconsistent : ∀ α ∉ X', inconsistent (X' ∪ {α})
-  · intro α hα hαcons
+  · intro α hα hαcon
     let Y := X' ∪ {α}
     have hYαsup : X' ⊆ Y := Set.subset_union_left X' {α}
-    have hYmem : Y ∈ H := Set.mem_sep (Set.subset_union_of_subset_left (hX'mem.left) {α}) hαcons
+    have hYmem : Y ∈ H := Set.mem_sep (Set.subset_union_of_subset_left (hX'mem.left) {α}) hαcon
     have hYeqX := hX'max Y hYmem hYαsup
     have hαmemY : α ∈ Y := Set.mem_union_right X' rfl
     rw [←hYeqX] at hα
