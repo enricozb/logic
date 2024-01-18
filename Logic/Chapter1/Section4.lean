@@ -252,6 +252,15 @@ lemma derivable_neg_iff {α : 𝓢.Formula (n + 1)} : X ⊢ ~α ↔ X ∪ {α} �
   sorry
 
 /--
+  A lemma to extract a property from an `Exists.choose` where `h₁` has to be inferred.
+-/
+lemma choose_spec_eq {α : Sort _} {p : α → Prop} {a : α} {h₁ : ∃ a, p a}
+  (h₂ : (Exists.choose h₁) = a) : p a := by
+  rw [←h₂]
+  apply Exists.choose_spec
+
+
+/--
   Lemma 4.3: Lindenbaum's theorem. A consistent set of formulas `X` can be
   extended to a maximually consistent set `X' ⊇ X`.
 -/
@@ -282,9 +291,41 @@ lemma consistent_maximal_extension {X : Set (𝓢.Formula (n + 1))} (h : consist
       simp only [consistent, not_exists, not_not] at hUinc
       have hUbot : U ⊢ ⊥ := hUinc ⊥
       have ⟨U₀, hU₀fin, hU₀subU, hU₀bot⟩ := finiteness hUbot
-      have hU₀nonempty : Set.Nonempty U₀ := sorry
-      have hU₀contents : ∀ αᵢ ∈ U₀, ∃ Yᵢ ∈ K, αᵢ ∈ Yᵢ := sorry
-      have ⟨Y, hYmemK, hYsup⟩ : ∃ Y ∈ K, U₀ ⊆ Y := sorry
+      have U₀' := (Set.Finite.toFinset hU₀fin).attach
+      have hU₀contents : ∀ αᵢ ∈ U₀, ∃ Yᵢ ∈ K, αᵢ ∈ Yᵢ := by
+        intro αᵢ hαᵢmemU₀
+        exact Set.mem_sUnion.mp (hU₀subU hαᵢmemU₀)
+
+      haveI : DecidableEq (Set (𝓢.Formula (n + 1))) := Classical.typeDecidableEq _
+
+      let Ys := @Finset.image
+        { x // x ∈ Set.Finite.toFinset hU₀fin }
+        (Set (𝓢.Formula (n + 1)))
+        _
+        (fun αᵢ => (hU₀contents αᵢ.val ((Set.Finite.mem_toFinset hU₀fin).mp αᵢ.prop)).choose) U₀'
+
+      have ⟨Y, hYmemK, hYsup⟩ : ∃ Y ∈ K, U₀ ⊆ Y := by
+        wlog hU₀ : Set.Nonempty U₀
+        · rw [Set.not_nonempty_iff_eq_empty] at hU₀
+          let ⟨Y, hY⟩ := hK
+          have : U₀ ⊆ Y := by rw [hU₀]; exact Set.empty_subset Y
+          exact ⟨Y, hY, this⟩
+
+        have ⟨Y, hYmemYs, hYmax⟩ : ∃ Yᵢ ∈ Ys, ∀ Yₖ ∈ Ys, Yₖ ⊆ Yᵢ := by sorry
+
+        apply Exists.intro Y
+        apply And.intro
+        -- Y ∈ K
+        · simp only [Finset.mem_image, Subtype.exists, Set.Finite.mem_toFinset] at hYmemYs
+          have ⟨αᵢ, hαᵢ, hαᵢU₀', heqY⟩ := hYmemYs
+          exact (choose_spec_eq heqY).left
+
+        -- U₀ ⊆ Y
+        · intro αᵢ hαᵢ
+          have ⟨Yᵢ, hYᵢ⟩ := hU₀contents αᵢ hαᵢ
+          -- Yᵢ ∈ K along with hYmax gets us this
+          sorry
+
       have hYbot : Y ⊢ ⊥ := Gentzen.mono hU₀bot hYsup
       have hYmemH : Y ∈ H := hKsub hYmemK
       have hYcon : consistent Y := hYmemH.right
