@@ -69,6 +69,8 @@ example : {α, β} ⊢ α ⋏ β := by
   all_goals
     simp only [Set.mem_singleton_iff, Set.singleton_subset_iff, Set.mem_insert_iff, true_or, or_true]
 
+lemma mem_provable (h : α ∈ X) : X ⊢ α := by sorry
+
 lemma true_intro : (∅ : Set (𝓢.Formula (n + 1))) ⊢ ⊤ := by sorry
 
 lemma not_elim (h : X ∪ {~α} ⊢ α) : X ⊢ α := by
@@ -153,7 +155,6 @@ instance : GentzenClosedRel (· ⊨ · : Set (𝓢.Formula n) → 𝓢.Formula n
     have hαn : w.value α = false := hn w hwX
     rw [hαp] at hαn
     contradiction
-
   not₂ := by
     intro X α β hp hn w hwX
     simp [Satisfies.satisfies] at hp hn
@@ -195,11 +196,31 @@ theorem finiteness {n : ℕ} {X : Set (𝓢.Formula n)} {α : 𝓢.Formula n}
         (Gentzen.mono hX₁β (Set.subset_union_right X₀ X₁))
     ⟩
 
-  sorry
-  sorry
-  sorry
-  sorry
+  case and₂_left =>
+    intro X α β ⟨X₀, hX₀fin, hX₀sub, hX₀αβ⟩
+    exact ⟨X₀, hX₀fin, hX₀sub, Gentzen.and₂_left hX₀αβ⟩
 
+  case and₂_right =>
+    intro X α β ⟨X₀, hX₀fin, hX₀sub, hX₀αβ⟩
+    exact ⟨X₀, hX₀fin, hX₀sub, Gentzen.and₂_right hX₀αβ⟩
+
+  case not₁ =>
+    intro X α β ⟨X₀, hX₀fin, hX₀sub, hX₀p⟩ ⟨X₁, hX₁fin, hX₁sub, hX₁n⟩
+    exact ⟨
+      (X₀ ∪ X₁),
+      (Set.Finite.union hX₀fin hX₁fin),
+      Set.union_subset hX₀sub hX₁sub,
+      Gentzen.not₁
+        (Gentzen.mono hX₀p (Set.subset_union_left X₀ X₁))
+        (Gentzen.mono hX₁n (Set.subset_union_right X₀ X₁))
+        β
+    ⟩
+
+  case not₂ =>
+    intro X α β ⟨X₀, hX₀fin, hX₀sub, hX₀p⟩ ⟨X₁, hX₁fin, hX₁sub, hX₁n⟩
+    -- need to show that X₀ doesn't have to include α
+    -- same with X₁ and ~α
+    sorry
 
 /--
   The soundness theorem states that if a formula `α` can be proved from `X`,
@@ -225,7 +246,7 @@ def inconsistent (X : Set (𝓢.Formula n)) := ¬ consistent X
 -/
 def maximally_consistent (X : Set (𝓢.Formula n)) := consistent X ∧ ∀ α ∉ X, inconsistent (X ∪ {α})
 
-theorem maximally_consistent_iff (X : Set (𝓢.Formula n)) :
+lemma maximally_consistent_iff (X : Set (𝓢.Formula n)) :
   maximally_consistent X ↔ ∀ α, α ∈ X ∨ ~α ∈ X := by sorry
 
 /-- Lemma 4.2a: The derivability relation C⁺. -/
@@ -259,52 +280,22 @@ lemma derivable_neg_iff {α : 𝓢.Formula (n + 1)} : X ⊢ ~α ↔ X ∪ {α} �
 lemma chain_fin_subset_max
   {α : Sort _} {K : Set (Set α)} (hKne : Set.Nonempty K) (hKc : IsChain (· ⊆ ·) K)
   (U₀ : Set α) (hU₀fin : Set.Finite U₀)
-  (map : ∀ αᵢ ∈ U₀, ∃ Yᵢ ∈ K, αᵢ ∈ Yᵢ) : ∃ Y ∈ K, U₀ ⊆ Y := by
-  induction' h : Set.ncard U₀ with n n_ih generalizing U₀
-  · rw [Set.ncard_eq_zero hU₀fin] at h
-    rw [h]
+  (map : ∀ aᵢ ∈ U₀, ∃ Yᵢ ∈ K, aᵢ ∈ Yᵢ) : ∃ Y ∈ K, U₀ ⊆ Y := by
+  induction U₀, hU₀fin using Set.Finite.dinduction_on with
+  | H0 =>
     have ⟨Y, hY⟩ := hKne
-    exact ⟨Y, hY, Set.empty_subset Y⟩
+    exact ⟨Y, hY, Set.empty_subset _⟩
 
-  · have ⟨αₙ, U₀', hαₙnotin, hαₙinsert, hU₀'card⟩ := Set.eq_insert_of_ncard_eq_succ h
-    have hαₙ : αₙ ∈ U₀ := by rw [←hαₙinsert]; exact Set.mem_insert _ _
-    have hαₙinsert_sub : insert αₙ U₀' ⊆ U₀ := by rw [hαₙinsert]
-    have hU₀'sub : U₀' ⊂ U₀ := Set.ssubset_iff_insert.mpr ⟨αₙ, hαₙnotin, hαₙinsert_sub⟩
-    have hU₀'fin : Set.Finite U₀' := Set.Finite.subset hU₀fin hU₀'sub.left
-    have map' : ∀ αᵢ ∈ U₀', ∃ Yᵢ ∈ K, αᵢ ∈ Yᵢ := by
-      intro αᵢ hαᵢ
-      exact map αᵢ (Set.mem_of_subset_of_mem hU₀'sub.left hαᵢ)
-    have ⟨Y', hY'memK, hY'sup⟩ := n_ih U₀' hU₀'fin map' hU₀'card
-    have ⟨Yₙ, hYₙmemK, hαₙmemYₙ⟩ := map αₙ hαₙ
-
-    wlog hneq : Y' ≠ Yₙ
-    · simp only [ne_eq, not_not] at hneq
-      apply Exists.intro Y'
-      apply And.intro hY'memK
-      intro αᵢ hαᵢ
-      simp [←hαₙinsert] at hαᵢ
-      match hαᵢ with
-      | Or.inl hαᵢeqαₙ => rw [hαᵢeqαₙ, hneq]; exact hαₙmemYₙ
-      | Or.inr hαᵢmemU₀' => exact hY'sup hαᵢmemU₀'
-
-    apply Or.elim (hKc hY'memK hYₙmemK hneq)
-    · intro hY'subYₙ
-      suffices hU₀subYₙ : U₀ ⊆ Yₙ
-      · exact ⟨Yₙ, hYₙmemK, hU₀subYₙ⟩
-      intro αᵢ hαᵢ
-      simp [←hαₙinsert] at hαᵢ
-      match hαᵢ with
-      | Or.inl hαᵢeqαₙ => rw [hαᵢeqαₙ]; exact hαₙmemYₙ
-      | Or.inr hαᵢmemU₀' => exact hY'subYₙ (hY'sup hαᵢmemU₀')
-
-    · intro hYₙsub
-      apply Exists.intro Y'
-      apply And.intro hY'memK
-      intro αᵢ hαᵢ
-      simp [←hαₙinsert] at hαᵢ
-      match hαᵢ with
-      | Or.inl hαᵢeqαₙ => rw [hαᵢeqαₙ]; exact hYₙsub hαₙmemYₙ
-      | Or.inr hαᵢmemU₀' => exact hY'sup hαᵢmemU₀'
+  | @H1 αₙ U₀' _ _ ih =>
+    have ⟨Yₙ, hYₙmemK, hαₙmemYₙ⟩ := map αₙ (Set.mem_insert _ _)
+    have ⟨Y', hY'memK, hY'sup⟩ := ih (fun a ha => map a (Set.mem_insert_of_mem _ ha))
+    obtain rfl | hne := eq_or_ne Yₙ Y'
+    · exact ⟨Yₙ, hYₙmemK, Set.insert_subset hαₙmemYₙ hY'sup⟩
+    cases hKc hY'memK hYₙmemK hne.symm with
+    | inl h =>
+      exact ⟨Yₙ, hYₙmemK, Set.insert_subset hαₙmemYₙ (hY'sup.trans h)⟩
+    | inr h =>
+      refine ⟨Y', hY'memK, Set.insert_subset (h hαₙmemYₙ) hY'sup⟩
 
 /--
   Lemma 4.3: Lindenbaum's theorem. A consistent set of formulas `X` can be
@@ -367,6 +358,84 @@ lemma consistent_maximal_extension {X : Set (𝓢.Formula (n + 1))} (h : consist
     contradiction
 
   exact ⟨X', hX'mem.left, hX'mem.right, maximally_consistent_X'⟩
+
+/--
+  Lemma 4.4: A maximally consistent set `X` has the property `X ⊢ ¬α ↔ X ⊬ α`,
+  for any formula `α`.
+-/
+lemma maximally_consistent_neg {X : Set (𝓢.Formula (n + 1))} (h : maximally_consistent X) : ∀ α, X ⊢ ~α ↔ X ⊬ α := by
+  intro α
+  apply Iff.intro
+
+  · intro hn
+    apply by_contradiction
+    intro hp; simp only [not_not] at hp
+    have hXinc : inconsistent X := by
+        simp [inconsistent, consistent, not_exists, not_not]
+        exact Gentzen.not₁ hp hn
+    exact hXinc h.left
+
+  · intro hp
+    simp only at hp
+    have hX_cons_ext := derivable_pos_iff.not.mp hp
+    have h' : ~α ∈ X := by
+      apply by_contradiction
+      · intro hn
+        have hXnα_inc := h.right (~α) hn
+        simp [inconsistent, consistent, not_exists] at hXnα_inc
+        have hXnα_bot := hXnα_inc ⊥
+        simp at hX_cons_ext
+        contradiction
+
+    apply Gentzen.mono Gentzen.init (Set.singleton_subset_iff.mpr h')
+
+/--
+  Lemma 4.5: The propositional equivalent to the model existence theorem. Any
+  maximally consistent set `X` has a model.
+-/
+lemma maximally_consistent_satisfiable {X : Set (𝓢.Formula (n + 1))} (h₁ : maximally_consistent X) :
+  ∃ (w : Model (n + 1)), w ⊨ X := by
+  let w : Model (n + 1) := ⟨fun i => @decide (X ⊢ (.var i)) (Classical.propDecidable _)⟩
+
+  suffices iff : ∀ α, X ⊢ α ↔ w ⊨ α
+  · apply Exists.intro w
+    intro α hα
+    exact (iff α).mp (mem_provable hα)
+
+  intro α
+  induction' α with i a s φs φs_ih
+  · simp only [Satisfies.satisfies, Model.value, decide_eq_true_eq]
+  · match a with
+    | 1 => match s with
+      | .not =>
+        simp [Satisfies.satisfies, Model.value, Interpretation.fns]
+        sorry
+
+    | 2 => match s with
+      | .and =>
+        simp [Satisfies.satisfies, Model.value, Interpretation.fns]
+        sorry
+
+/-- Theorem 4.6: `X ⊢ α ↔ X ⊨ α` for all `X` and `α`. -/
+theorem completeness (X : Set (𝓢.Formula (n + 1))) (α : 𝓢.Formula (n + 1)) :
+  X ⊢ α ↔ X ⊨ α := by
+  apply Iff.intro soundness
+  · contrapose
+    intro hnXα
+    have hXαcon : consistent (X ∪ {~α}) := ⟨⊥, derivable_pos_iff.not.mp hnXα⟩
+    have ⟨Y, hY⟩ := consistent_maximal_extension hXαcon
+    have ⟨w, hw⟩ := maximally_consistent_satisfiable hY.right
+    have hXsub : X ⊆ Y := (Set.union_subset_iff.mp hY.left).left
+    have hwX : w ⊨ X := fun α hα => hw α (hXsub hα)
+
+    intro hXα
+    have hα : w ⊨ α := hXα w hwX
+    have hwnα : w ⊨ ~α := hw (~α) (Set.singleton_subset_iff.mp (Set.union_subset_iff.mp hY.left).right)
+
+    simp [Satisfies.satisfies, Model.value, Interpretation.fns] at hwnα hα
+    rw [hα] at hwnα
+
+    contradiction
 
 end Section4
 end Chapter1
