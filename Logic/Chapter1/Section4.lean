@@ -1,3 +1,4 @@
+import Mathlib.Data.Set.Card
 import Mathlib.Data.Set.Finite
 import Mathlib.Order.Zorn
 import «Logic».Chapter1.Section1
@@ -252,82 +253,102 @@ lemma derivable_neg_iff {α : 𝓢.Formula (n + 1)} : X ⊢ ~α ↔ X ∪ {α} �
   sorry
 
 /--
-  A lemma to extract a property from an `Exists.choose` where `h₁` has to be inferred.
+  A finite subset of some chain has a maximum set. This lemma is needed for
+  Lindenbaum's theorem.
 -/
-lemma choose_spec_eq {α : Sort _} {p : α → Prop} {a : α} {h₁ : ∃ a, p a}
-  (h₂ : (Exists.choose h₁) = a) : p a := by
-  rw [←h₂]
-  apply Exists.choose_spec
+lemma chain_fin_subset_max
+  {α : Sort _} {K : Set (Set α)} (hKne : Set.Nonempty K) (hKc : IsChain (· ⊆ ·) K)
+  (U₀ : Set α) (hU₀fin : Set.Finite U₀)
+  (map : ∀ αᵢ ∈ U₀, ∃ Yᵢ ∈ K, αᵢ ∈ Yᵢ) : ∃ Y ∈ K, U₀ ⊆ Y := by
+  induction' h : Set.ncard U₀ with n n_ih generalizing U₀
+  · rw [Set.ncard_eq_zero hU₀fin] at h
+    rw [h]
+    have ⟨Y, hY⟩ := hKne
+    exact ⟨Y, hY, Set.empty_subset Y⟩
 
+  · have ⟨αₙ, U₀', hαₙnotin, hαₙinsert, hU₀'card⟩ := Set.eq_insert_of_ncard_eq_succ h
+    have hαₙ : αₙ ∈ U₀ := by rw [←hαₙinsert]; exact Set.mem_insert _ _
+    have hαₙinsert_sub : insert αₙ U₀' ⊆ U₀ := by rw [hαₙinsert]
+    have hU₀'sub : U₀' ⊂ U₀ := Set.ssubset_iff_insert.mpr ⟨αₙ, hαₙnotin, hαₙinsert_sub⟩
+    have hU₀'fin : Set.Finite U₀' := Set.Finite.subset hU₀fin hU₀'sub.left
+    have map' : ∀ αᵢ ∈ U₀', ∃ Yᵢ ∈ K, αᵢ ∈ Yᵢ := by
+      intro αᵢ hαᵢ
+      exact map αᵢ (Set.mem_of_subset_of_mem hU₀'sub.left hαᵢ)
+    have ⟨Y', hY'memK, hY'sup⟩ := n_ih U₀' hU₀'fin map' hU₀'card
+    have ⟨Yₙ, hYₙmemK, hαₙmemYₙ⟩ := map αₙ hαₙ
+
+    wlog hneq : Y' ≠ Yₙ
+    · simp only [ne_eq, not_not] at hneq
+      apply Exists.intro Y'
+      apply And.intro hY'memK
+      intro αᵢ hαᵢ
+      simp [←hαₙinsert] at hαᵢ
+      match hαᵢ with
+      | Or.inl hαᵢeqαₙ => rw [hαᵢeqαₙ, hneq]; exact hαₙmemYₙ
+      | Or.inr hαᵢmemU₀' => exact hY'sup hαᵢmemU₀'
+
+    apply Or.elim (hKc hY'memK hYₙmemK hneq)
+    · intro hY'subYₙ
+      suffices hU₀subYₙ : U₀ ⊆ Yₙ
+      · exact ⟨Yₙ, hYₙmemK, hU₀subYₙ⟩
+      intro αᵢ hαᵢ
+      simp [←hαₙinsert] at hαᵢ
+      match hαᵢ with
+      | Or.inl hαᵢeqαₙ => rw [hαᵢeqαₙ]; exact hαₙmemYₙ
+      | Or.inr hαᵢmemU₀' => exact hY'subYₙ (hY'sup hαᵢmemU₀')
+
+    · intro hYₙsub
+      apply Exists.intro Y'
+      apply And.intro hY'memK
+      intro αᵢ hαᵢ
+      simp [←hαₙinsert] at hαᵢ
+      match hαᵢ with
+      | Or.inl hαᵢeqαₙ => rw [hαᵢeqαₙ]; exact hYₙsub hαₙmemYₙ
+      | Or.inr hαᵢmemU₀' => exact hY'sup hαᵢmemU₀'
 
 /--
   Lemma 4.3: Lindenbaum's theorem. A consistent set of formulas `X` can be
   extended to a maximually consistent set `X' ⊇ X`.
 -/
-lemma consistent_maximal_extension {X : Set (𝓢.Formula (n + 1))} (h : consistent X) : ∃ X', X ⊆ X' ∧ maximally_consistent X' := by
+lemma consistent_maximal_extension {X : Set (𝓢.Formula (n + 1))} (h : consistent X) :
+  ∃ X', X ⊆ X' ∧ maximally_consistent X' := by
   let H := {X' | X ⊆ X' ∧ consistent X'}
   have ⟨X', hX'mem, hX'max⟩ : ∃ X' ∈ H, ∀ Y ∈ H, X' ⊆ Y → Y = X' := by
     apply zorn_subset
     intro K hKsub hKchain
 
-    wlog hK : ∃ Y, Y ∈ K
-    · simp only [not_exists] at hK
-      exact ⟨X, ⟨Eq.subset rfl, h⟩, fun Y hY => (hK Y hY).elim⟩
+    wlog hKnonempty : ∃ Y, Y ∈ K
+    · simp only [not_exists] at hKnonempty
+      exact ⟨X, ⟨Eq.subset rfl, h⟩, fun Y hY => (hKnonempty Y hY).elim⟩
 
     let U := ⋃₀ K
     suffices hU : U ∈ H
     · exact ⟨U, hU, fun Y hY => Set.subset_sUnion_of_mem hY⟩
 
     apply And.intro
-    -- X ⊆ U
+
+    show X ⊆ U
     · intro x hx
       simp only [Set.mem_sUnion]
-      have ⟨Y, hY⟩ := hK
+      have ⟨Y, hY⟩ := hKnonempty
       exact ⟨Y, hY, (hKsub hY).left hx⟩
 
-    -- consistent U
+    show consistent U
     · apply by_contradiction
-      intro hUinc
-      simp only [consistent, not_exists, not_not] at hUinc
-      have hUbot : U ⊢ ⊥ := hUinc ⊥
+      simp only [consistent, not_exists, not_not]
+      intro hU
+      have hUbot : U ⊢ ⊥ := hU ⊥
+
       have ⟨U₀, hU₀fin, hU₀subU, hU₀bot⟩ := finiteness hUbot
-      have U₀' := (Set.Finite.toFinset hU₀fin).attach
-      have hU₀contents : ∀ αᵢ ∈ U₀, ∃ Yᵢ ∈ K, αᵢ ∈ Yᵢ := by
-        intro αᵢ hαᵢmemU₀
-        exact Set.mem_sUnion.mp (hU₀subU hαᵢmemU₀)
+      have map : ∀ αᵢ ∈ U₀, ∃ Yᵢ ∈ K, αᵢ ∈ Yᵢ := by
+        intro αᵢ hαᵢ
+        exact hU₀subU hαᵢ
 
-      haveI : DecidableEq (Set (𝓢.Formula (n + 1))) := Classical.typeDecidableEq _
+      have ⟨Y, hYmem, hYsub⟩ : ∃ Y ∈ K, U₀ ⊆ Y :=
+        chain_fin_subset_max hKnonempty hKchain U₀ hU₀fin map
 
-      let Ys := @Finset.image
-        { x // x ∈ Set.Finite.toFinset hU₀fin }
-        (Set (𝓢.Formula (n + 1)))
-        _
-        (fun αᵢ => (hU₀contents αᵢ.val ((Set.Finite.mem_toFinset hU₀fin).mp αᵢ.prop)).choose) U₀'
-
-      have ⟨Y, hYmemK, hYsup⟩ : ∃ Y ∈ K, U₀ ⊆ Y := by
-        wlog hU₀ : Set.Nonempty U₀
-        · rw [Set.not_nonempty_iff_eq_empty] at hU₀
-          let ⟨Y, hY⟩ := hK
-          have : U₀ ⊆ Y := by rw [hU₀]; exact Set.empty_subset Y
-          exact ⟨Y, hY, this⟩
-
-        have ⟨Y, hYmemYs, hYmax⟩ : ∃ Yᵢ ∈ Ys, ∀ Yₖ ∈ Ys, Yₖ ⊆ Yᵢ := by sorry
-
-        apply Exists.intro Y
-        apply And.intro
-        -- Y ∈ K
-        · simp only [Finset.mem_image, Subtype.exists, Set.Finite.mem_toFinset] at hYmemYs
-          have ⟨αᵢ, hαᵢ, hαᵢU₀', heqY⟩ := hYmemYs
-          exact (choose_spec_eq heqY).left
-
-        -- U₀ ⊆ Y
-        · intro αᵢ hαᵢ
-          have ⟨Yᵢ, hYᵢ⟩ := hU₀contents αᵢ hαᵢ
-          -- Yᵢ ∈ K along with hYmax gets us this
-          sorry
-
-      have hYbot : Y ⊢ ⊥ := Gentzen.mono hU₀bot hYsup
-      have hYmemH : Y ∈ H := hKsub hYmemK
+      have hYbot : Y ⊢ ⊥ := Gentzen.mono hU₀bot hYsub
+      have hYmemH : Y ∈ H := hKsub hYmem
       have hYcon : consistent Y := hYmemH.right
       have hYinc : inconsistent Y := by
         simp [inconsistent, consistent, not_exists, not_not]
@@ -336,17 +357,16 @@ lemma consistent_maximal_extension {X : Set (𝓢.Formula (n + 1))} (h : consist
 
       contradiction
 
-  have extension_inconsistent : ∀ α ∉ X', inconsistent (X' ∪ {α})
+  have maximally_consistent_X' : ∀ α ∉ X', inconsistent (X' ∪ {α})
   · intro α hα hαcon
     let Y := X' ∪ {α}
-    have hYαsup : X' ⊆ Y := Set.subset_union_left X' {α}
     have hYmem : Y ∈ H := Set.mem_sep (Set.subset_union_of_subset_left (hX'mem.left) {α}) hαcon
-    have hYeqX := hX'max Y hYmem hYαsup
     have hαmemY : α ∈ Y := Set.mem_union_right X' rfl
-    rw [←hYeqX] at hα
+    have hYαsup : X' ⊆ Y := Set.subset_union_left X' {α}
+    rw [←(hX'max Y hYmem hYαsup)] at hα
     contradiction
 
-  exact ⟨X', hX'mem.left, hX'mem.right, extension_inconsistent⟩
+  exact ⟨X', hX'mem.left, hX'mem.right, maximally_consistent_X'⟩
 
 end Section4
 end Chapter1
