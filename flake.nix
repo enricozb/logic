@@ -3,7 +3,7 @@
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
-  inputs.lean4.url = "github:leanprover/lean4/v4.4.0";
+  inputs.lean4.url = "github:leanprover/lean4/v4.5.0";
 
   outputs = { self, nixpkgs, flake-utils, lean4 }:
     flake-utils.lib.eachDefaultSystem (system:
