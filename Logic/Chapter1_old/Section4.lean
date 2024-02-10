@@ -1,8 +1,8 @@
 import Mathlib.Data.Set.Card
 import Mathlib.Data.Set.Finite
 import Mathlib.Order.Zorn
-import «Logic».Chapter1.Section1
-import «Logic».Chapter1.Section3
+import «Logic».Chapter1_old.Section1
+import «Logic».Chapter1_old.Section3
 
 namespace Chapter1
 namespace Section4

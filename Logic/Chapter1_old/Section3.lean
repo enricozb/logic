@@ -1,4 +1,4 @@
-import «Logic».Chapter1.Section2
+import «Logic».Chapter1_old.Section2
 
 namespace Chapter1
 namespace Section3

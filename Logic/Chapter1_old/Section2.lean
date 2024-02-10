@@ -1,5 +1,5 @@
 import Mathlib.Data.FinEnum
-import «Logic».Chapter1.Section1
+import «Logic».Chapter1_old.Section1
 
 namespace Chapter1
 namespace Section2
