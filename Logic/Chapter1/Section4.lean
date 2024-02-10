@@ -69,9 +69,9 @@ example : {α, β} ⊢ α ⋏ β := by
   all_goals
     simp only [Set.mem_singleton_iff, Set.singleton_subset_iff, Set.mem_insert_iff, true_or, or_true]
 
-lemma mem_provable (h : α ∈ X) : X ⊢ α := by sorry
-
-lemma true_intro : (∅ : Set (𝓢.Formula (n + 1))) ⊢ ⊤ := by sorry
+lemma mem_provable (h : α ∈ X) : X ⊢ α := by
+  have : {α} ⊆ X := Set.singleton_subset_iff.mpr h
+  exact Gentzen.mono (Gentzen.init) this
 
 lemma not_elim (h : X ∪ {~α} ⊢ α) : X ⊢ α := by
   have h₁ : X ∪ {α} ⊢ α
@@ -83,12 +83,28 @@ lemma absurdum₁ (hp : X ∪ {~α} ⊢ β) (hn : X ∪ {~α} ⊢ ~β) : X ⊢ �
   have : X ∪ {~α} ⊢ α := Gentzen.not₁ hp hn α
   exact not_elim this
 
-lemma absurdum₂ {X : Set (𝓢.Formula (n + 1))} (hp : X ⊢ ⊥) : X ⊢ α := by
+lemma absurdum₂ {X : Set (𝓢.Formula (n + 1))} (h : X ⊢ ⊥) : X ⊢ α :=
+  Gentzen.not₁ (Gentzen.and₂_left h) (Gentzen.and₂_right h) α
+
+lemma true_intro : (∅ : Set (𝓢.Formula (n + 1))) ⊢ ⊤ := by
+  have h₁ : (∅ : Set (𝓢.Formula (n + 1))) ∪ {⊥} ⊢ ⊤ := by
+    simp only [Set.union_singleton, insert_emptyc_eq]
+    exact absurdum₂ Gentzen.init
+
+  have h₂ : (∅ : Set (𝓢.Formula (n + 1))) ∪ {~⊥} ⊢ ⊤ := by
+    exact Gentzen.mono Gentzen.init (Set.subset_union_right ∅ {⊤})
+
+  exact Gentzen.not₂ h₁ h₂
+
+lemma arrow_elim (h : X ⊢ α ⟶ β) : X ∪ {α} ⊢ β := by
   sorry
 
-lemma arrow_elim (h : X ⊢ α ⟶ β) : X ∪ {α} ⊢ β := sorry
+lemma cut (h₁ : X ⊢ α) (h₂ : X ∪ {α} ⊢ β): X ⊢ β := by
+  have hp : X ∪ {~α} ⊢ α := Gentzen.mono h₁ (Set.subset_union_left X {~α})
+  have hn : X ∪ {~α} ⊢ ~α := Gentzen.mono Gentzen.init (Set.subset_union_right X {~α})
+  have hβ : X ∪ {~α} ⊢ β := Gentzen.not₁ hp hn β
 
-lemma cut (h₁ : X ⊢ α) (h₂ : X ∪ {α} ⊢ β): X ⊢ β := sorry
+  exact Gentzen.not₂ h₂ hβ
 
 lemma arrow_intro (h : X ∪ {α} ⊢ β) : X ⊢ α ⟶ β := sorry
 
@@ -166,50 +182,49 @@ instance : GentzenClosedRel (· ⊨ · : Set (𝓢.Formula n) → 𝓢.Formula n
       exact hn w hα hwX
 
 /--
-  Theorem 4.1: If `X ⊢ α`, then there is a finite subset `X₀ ⊆ X` such that
-  `X₀ ⊢ α`.
+  Theorem 4.1: If `X ⊢ α`, then there is a finite subset `X₀ ⊆ X` such that `X₀ ⊢ α`.
 -/
 theorem finiteness {n : ℕ} {X : Set (𝓢.Formula n)} {α : 𝓢.Formula n}
-  (h : X ⊢ α) : ∃ X₀, X₀.Finite ∧ (X₀ ⊆ X) ∧ (X₀ ⊢ α) := by
+  (h : X ⊢ α) : ∃ X₀ ⊆ X, X₀.Finite ∧ (X₀ ⊢ α) := by
 
-  let 𝓔 (X : Set (𝓢.Formula n)) α := ∃ X₀, X₀.Finite ∧ (X₀ ⊆ X) ∧ (X₀ ⊢ α)
+  let 𝓔 (X : Set (𝓢.Formula n)) α := ∃ X₀ ⊆ X, X₀.Finite ∧ (X₀ ⊢ α)
   suffices : GentzenClosedRel 𝓔
   · exact principle_of_rule_induction this h
 
   constructor
   case init =>
     intro α
-    exact ⟨{α}, Set.finite_singleton α, Set.singleton_subset_singleton.mpr rfl, .init⟩
+    exact ⟨{α}, Set.singleton_subset_singleton.mpr rfl, Set.finite_singleton α, .init⟩
 
   case mono =>
-    intro X α X' ⟨X₀, hX₀fin, hX₀sub, hX₀α⟩ hX
-    exact ⟨X₀, hX₀fin, Set.Subset.trans hX₀sub hX, hX₀α⟩
+    intro X α X' ⟨X₀, hX₀sub, hX₀fin, hX₀α⟩ hX
+    exact ⟨X₀, Set.Subset.trans hX₀sub hX, hX₀fin, hX₀α⟩
 
   case and₁ =>
-    intro X α β ⟨X₀, hX₀fin, hX₀sub, hX₀α⟩ ⟨X₁, hX₁fin, hX₁sub, hX₁β⟩
+    intro X α β ⟨X₀, hX₀sub, hX₀fin, hX₀α⟩ ⟨X₁, hX₁sub, hX₁fin, hX₁β⟩
     exact ⟨
-      (X₀ ∪ X₁),
-      (Set.Finite.union hX₀fin hX₁fin),
+      X₀ ∪ X₁,
       Set.union_subset hX₀sub hX₁sub,
+      Set.Finite.union hX₀fin hX₁fin,
       Gentzen.and₁
         (Gentzen.mono hX₀α (Set.subset_union_left X₀ X₁))
         (Gentzen.mono hX₁β (Set.subset_union_right X₀ X₁))
     ⟩
 
   case and₂_left =>
-    intro X α β ⟨X₀, hX₀fin, hX₀sub, hX₀αβ⟩
-    exact ⟨X₀, hX₀fin, hX₀sub, Gentzen.and₂_left hX₀αβ⟩
+    intro X α β ⟨X₀, hX₀sub, hX₀fin, hX₀αβ⟩
+    exact ⟨X₀, hX₀sub, hX₀fin, Gentzen.and₂_left hX₀αβ⟩
 
   case and₂_right =>
-    intro X α β ⟨X₀, hX₀fin, hX₀sub, hX₀αβ⟩
-    exact ⟨X₀, hX₀fin, hX₀sub, Gentzen.and₂_right hX₀αβ⟩
+    intro X α β ⟨X₀, hX₀sub, hX₀fin, hX₀αβ⟩
+    exact ⟨X₀, hX₀sub, hX₀fin, Gentzen.and₂_right hX₀αβ⟩
 
   case not₁ =>
-    intro X α β ⟨X₀, hX₀fin, hX₀sub, hX₀p⟩ ⟨X₁, hX₁fin, hX₁sub, hX₁n⟩
+    intro X α β ⟨X₀, hX₀sub, hX₀fin, hX₀p⟩ ⟨X₁, hX₁sub, hX₁fin, hX₁n⟩
     exact ⟨
-      (X₀ ∪ X₁),
-      (Set.Finite.union hX₀fin hX₁fin),
+      X₀ ∪ X₁,
       Set.union_subset hX₀sub hX₁sub,
+      Set.Finite.union hX₀fin hX₁fin,
       Gentzen.not₁
         (Gentzen.mono hX₀p (Set.subset_union_left X₀ X₁))
         (Gentzen.mono hX₁n (Set.subset_union_right X₀ X₁))
@@ -217,7 +232,7 @@ theorem finiteness {n : ℕ} {X : Set (𝓢.Formula n)} {α : 𝓢.Formula n}
     ⟩
 
   case not₂ =>
-    intro X α β ⟨X₀, hX₀fin, hX₀sub, hX₀p⟩ ⟨X₁, hX₁fin, hX₁sub, hX₁n⟩
+    intro X α β ⟨X₀, hX₀sub, hX₀fin, hX₀p⟩ ⟨X₁, hX₁sub, hX₁fin, hX₁n⟩
     -- need to show that X₀ doesn't have to include α
     -- same with X₁ and ~α
     sorry
@@ -239,6 +254,20 @@ theorem soundness {n : ℕ} {X : Set (𝓢.Formula n)} {α : 𝓢.Formula n} (hX
 -/
 def consistent (X : Set (𝓢.Formula n)) := ∃ α, X ⊬ α
 def inconsistent (X : Set (𝓢.Formula n)) := ¬ consistent X
+
+lemma consistent₁ (hc : consistent X) (hα : X ⊢ α) : X ⊬ ~α := by
+  apply by_contradiction
+  intro hnα
+  simp only [not_not] at hnα
+  have ⟨β, hβ⟩ := hc
+  exact hβ (Gentzen.not₁ hα hnα β)
+
+lemma consistent₂ (hc : consistent X) (hnα : X ⊢ ~α) : X ⊬ α := by
+  apply by_contradiction
+  intro hα
+  simp at hα
+  have ⟨β, hβ⟩ := hc
+  exact hβ (Gentzen.not₁ hα hnα β)
 
 /--
   A maximally consistent set of formulas is a consistent set where any proper
@@ -330,7 +359,7 @@ lemma consistent_maximal_extension {X : Set (𝓢.Formula (n + 1))} (h : consist
       intro hU
       have hUbot : U ⊢ ⊥ := hU ⊥
 
-      have ⟨U₀, hU₀fin, hU₀subU, hU₀bot⟩ := finiteness hUbot
+      have ⟨U₀, hU₀subU, hU₀fin, hU₀bot⟩ := finiteness hUbot
       have map : ∀ αᵢ ∈ U₀, ∃ Yᵢ ∈ K, αᵢ ∈ Yᵢ := by
         intro αᵢ hαᵢ
         exact hU₀subU hαᵢ
@@ -389,12 +418,15 @@ lemma maximally_consistent_neg {X : Set (𝓢.Formula (n + 1))} (h : maximally_c
 
     apply Gentzen.mono Gentzen.init (Set.singleton_subset_iff.mpr h')
 
+/-- Definition of satisfiability of a set of formulas `X`. -/
+abbrev satisfiable (X : Set (𝓢.Formula n)) := ∃ (w : Model n), w ⊨ X
+
 /--
   Lemma 4.5: The propositional equivalent to the model existence theorem. Any
   maximally consistent set `X` has a model.
 -/
 lemma maximally_consistent_satisfiable {X : Set (𝓢.Formula (n + 1))} (h₁ : maximally_consistent X) :
-  ∃ (w : Model (n + 1)), w ⊨ X := by
+  satisfiable X := by
   let w : Model (n + 1) := ⟨fun i => @decide (X ⊢ (.var i)) (Classical.propDecidable _)⟩
 
   suffices iff : ∀ α, X ⊢ α ↔ w ⊨ α
@@ -409,7 +441,22 @@ lemma maximally_consistent_satisfiable {X : Set (𝓢.Formula (n + 1))} (h₁ : 
     | 1 => match s with
       | .not =>
         simp [Satisfies.satisfies, Model.value, Interpretation.fns]
-        sorry
+        apply Iff.intro
+        · intro h
+          have imp := (φs_ih 0).not.mp
+          simp only [Satisfies.satisfies, ne_eq, Bool.not_eq_true] at imp
+          have hnφs₀ : X ⊬ (φs 0) := by
+            have hφs : ![φs 0] = φs := List.ofFn_inj.mp rfl
+            apply consistent₂ h₁.left ?h
+            simp only [Tilde.tilde, hφs, h]
+          exact imp hnφs₀
+        · intro h
+          have imp := (φs_ih 0).not.mpr
+          simp only [Satisfies.satisfies, ne_eq, Bool.not_eq_true] at imp
+          have hXnφs₀ := (maximally_consistent_neg h₁ _).mpr (imp h)
+          have hφs : ![φs 0] = φs := List.ofFn_inj.mp rfl
+          simp [Tilde.tilde, hφs] at hXnφs₀
+          exact hXnφs₀
 
     | 2 => match s with
       | .and =>
@@ -417,7 +464,7 @@ lemma maximally_consistent_satisfiable {X : Set (𝓢.Formula (n + 1))} (h₁ : 
         sorry
 
 /-- Theorem 4.6: `X ⊢ α ↔ X ⊨ α` for all `X` and `α`. -/
-theorem completeness (X : Set (𝓢.Formula (n + 1))) (α : 𝓢.Formula (n + 1)) :
+theorem completeness {X : Set (𝓢.Formula (n + 1))} {α : 𝓢.Formula (n + 1)} :
   X ⊢ α ↔ X ⊨ α := by
   apply Iff.intro soundness
   · contrapose
@@ -436,6 +483,44 @@ theorem completeness (X : Set (𝓢.Formula (n + 1))) (α : 𝓢.Formula (n + 1)
     rw [hα] at hwnα
 
     contradiction
+
+/--
+  Theorem 4.7: If `X ⊨ α`, then there is a finite subset `X₀ ⊆ X` such that `X₀ ⊨ α`.
+  This is the analog to 4.1 but with `⊨` instead of `⊢`.
+-/
+theorem finiteness' {X : Set (𝓢.Formula (n + 1))} {α : 𝓢.Formula (n + 1)} (h : X ⊨ α) :
+    ∃ X₀ ⊆ X, X₀.Finite ∧ (X₀ ⊨ α) := by
+  have ⟨X₀, hsub, hfin, hsat⟩ := finiteness (completeness.mpr h)
+  exact ⟨X₀, hsub, hfin, completeness.mp hsat⟩
+
+/--
+  Theorem 4.8: Propositional compactness theorem.
+  A set `X` of propositional formulas is satisfiable if each finite subset of `X` is satisfiable.
+-/
+theorem compactness {X : Set (𝓢.Formula (n + 1))} {α : 𝓢.Formula (n + 1)}
+    (h : ∀ X₀ ⊆ X, X₀.Finite → satisfiable X₀) : satisfiable X := by
+  by_contra hsat
+  have h' : X ⊨ (⊥ : 𝓢.Formula (n + 1)) := by
+    intro w hw
+    rw [not_exists] at hsat
+    have := hsat w hw
+    contradiction
+
+  /- If `X ⊨ ⊥` then `X` has no model. -/
+  have {X : Set (𝓢.Formula (n + 1))} (hX : X ⊨ (⊥ : 𝓢.Formula (n + 1))) (w : Model (n + 1)) :
+      w ⊭ X := by
+    intro hw
+    simp [Satisfies.satisfies] at hX
+    have hbot := hX w hw
+    simp [Model.value, Interpretation.fns, Bool.and_not_self] at hbot
+
+  have ⟨X₀, hsub, hfin, hX₀⟩ := finiteness' h'
+  have hX₀sat := h X₀ hsub hfin
+  have hX₀not_sat : ¬ satisfiable X₀ := by
+    simp only [satisfiable, not_exists]
+    exact this hX₀
+
+  exact hX₀not_sat hX₀sat
 
 end Section4
 end Chapter1
