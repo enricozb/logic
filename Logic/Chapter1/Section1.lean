@@ -133,9 +133,14 @@ class IsLinear (f : 𝔹 n) where
   constants : [Constant; n + 1]
   linear : is_linear α constants
 
-/-- Exercise 1a. The representation of linear functions is unique. -/
-theorem linear_is_unique (l₁ : IsLinear f) (l₂ : IsLinear f) : l₁.constants = l₂.constants := by
-  sorry
+/-- Exercise 1a: The representation of linear functions is unique. -/
+proof_wanted linear_is_unique (l₁ l₂ : IsLinear f) : l₁.constants = l₂.constants
+
+/-- Exercise 2: A compound boolean formula `φ` is either of the form `¬α`, `α ⋏ β`, or `α ⋎ β`. -/
+proof_wanted compound_formula {φ : B.Formula V} (_ : ∀ p, φ ≠ .var p) :
+    (∃ α, φ = ~α) ∨ (∃ α β, φ = α ⋏ β) ∨ (∃ α β, φ = α ⋎ β)
+
+/- Exercises 3-4 aren't really statable as they represent formulas as strings. -/
 
 end Exercises
 
