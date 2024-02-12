@@ -13,13 +13,13 @@ scoped notation "𝔹" n => [Bool; n] → Bool
 /- These classes define notations for common logical symbols, including their "big" versions. -/
 
 class Tilde (α : Sort _) where tilde : α → α
-class Vee   (α : Sort _) where vee   : α → α → α
 class Wedge (α : Sort _) where wedge : α → α → α
+class Vee   (α : Sort _) where vee   : α → α → α
 class Oplus (α : Sort _) where oplus : α → α → α
 class Arrow (α : Sort _) where arrow : α → α → α
 
-class BigVee   (α : Sort _) where bigvee   : ∀ {n}, [α; n + 1] → α
 class BigWedge (α : Sort _) where bigwedge : ∀ {n}, [α; n + 1] → α
+class BigVee   (α : Sort _) where bigvee   : ∀ {n}, [α; n + 1] → α
 class BigOplus (α : Sort _) where bigoplus : ∀ {n}, [α; n + 1] → α
 
 scoped prefix:75 "~"   => Tilde.tilde
@@ -37,8 +37,24 @@ def foldop {a : ℕ} (op : α → α → α) (φs : [α; a + 1]) :=
     | 0 => φs 0
     | i + 1 => op (foldop op (Fin.init φs)) (φs (Fin.last (i + 1)))
 
-instance [Vee α]   : BigVee α   := ⟨foldop Vee.vee⟩
 instance [Wedge α] : BigWedge α := ⟨foldop Wedge.wedge⟩
+instance [Vee α]   : BigVee α   := ⟨foldop Vee.vee⟩
 instance [Oplus α] : BigOplus α := ⟨foldop Oplus.oplus⟩
+
+instance : Tilde ([Bool; n] → Bool) where tilde f := Bool.not ∘ f
+instance : Wedge Bool where wedge := Bool.and
+instance : Vee Bool where vee := Bool.or
+
+theorem BigWedge.one [Wedge α] (αs : [α; 1]) : ⋀ αs = αs 0 := by rfl
+
+theorem BigWedge.apply {n : ℕ} [Wedge α] (αs : [α; n + 1 + 1]) :
+    ⋀ αs = (⋀ Fin.init αs) ⋏ (αs (Fin.last (n + 1))) := by
+  rfl
+
+theorem BigVee.one [Vee α] (αs : [α; 1]) : ⋁ αs = αs 0 := by rfl
+
+theorem BigVee.apply {n : ℕ} [Vee α] (αs : [α; n + 1 + 1]) :
+    ⋁ αs = (⋁ Fin.init αs) ⋎ (αs (Fin.last (n + 1))) := by
+  rfl
 
 end Notation

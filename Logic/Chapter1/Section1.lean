@@ -86,6 +86,44 @@ def Signature.Formula.function (α : S.Formula (Fin n)) : 𝔹 n := (fun b => (M
 theorem Signature.Formula.represents_function (α : S.Formula (Fin n)) : α.represents α.function :=
   fun _ => rfl
 
+variable {V : Type _} [Inhabited V] (w : Model V)
+
+@[simp] theorem Model.value_and (α β : B.Formula V) :
+    w.value (α ⋏ β) = Bool.and (w.value α) (w.value β) := by
+  simp only [value, Interpretation.fns, Matrix.cons_val_zero, Matrix.cons_val_one, Matrix.head_cons]
+
+@[simp] theorem Model.value_or (α β : B.Formula V) :
+    w.value (α ⋎ β) = Bool.or (w.value α) (w.value β) := by
+  simp only [value, Interpretation.fns, Matrix.cons_val_zero, Matrix.cons_val_one, Matrix.head_cons]
+
+@[simp] theorem Model.value_not (α : B.Formula V) : w.value (~α) = Bool.not (w.value α) := by
+  simp only [value, Interpretation.fns, Matrix.cons_val_zero, Matrix.cons_val_one, Matrix.head_cons]
+
+@[simp] theorem Model.value_top : w.value (⊤ : B.Formula V) = true := by
+  simp only [Top.top, value_or, value_not, Bool.or_not_self]
+
+@[simp] theorem Model.value_bot : w.value (⊥ : B.Formula V) = false := by
+  simp only [Bot.bot, value_and, value_not, Bool.and_not_self]
+
+@[simp] theorem Model.value_ite (b : Bool) (α β : S.Formula V) :
+    w.value (if b then α else β) = if b then w.value α else w.value β := by
+  by_cases h : b
+  · simp_rw [if_pos h]
+  · simp_rw [if_neg h]
+
+@[simp] theorem Model.value_bigwedge {n : ℕ} (φs : [B.Formula V; n + 1]) :
+    w.value (⋀ φs) = ⋀ (fun i => w.value (φs i)) := by
+  sorry
+  -- match n with
+  -- | 0 => simp only [BigWedge.one, Fin.forall_fin_one]
+  -- | n + 1 =>
+  --   simp only [BigWedge.apply, value_and, Bool.and_eq_true, value_bigand (Fin.tail φs)]
+
+@[simp] theorem Model.value_bigvee {n : ℕ} (φs : [B.Formula V; n + 1]) :
+    w.value (⋁ φs) = ⋁ (fun i => w.value (φs i)) := by
+  sorry
+
+
 end Model
 
 
