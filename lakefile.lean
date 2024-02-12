@@ -1,11 +1,10 @@
 import Lake
 open Lake DSL
 
-package «logic» where
-  -- add package configuration options here
+package «logic»
 
-lean_lib «Logic» where
-  -- add library configuration options here
+lean_lib «Logic»
+lean_lib «MathlibExt»
 
 @[default_target]
 lean_exe «logic» where

@@ -31,12 +31,11 @@ scoped prefix:75 "⋀"   => BigWedge.bigwedge
 scoped prefix:75 "⋁"   => BigVee.bigvee
 scoped prefix:75 "⨁"   => BigOplus.bigoplus
 
-
 /-- Folds an operator over a vector. -/
 def foldop {a : ℕ} (op : α → α → α) (φs : [α; a + 1]) :=
     match a with
     | 0 => φs 0
-    | i + 1 => op (foldop op (Fin.init φs)) (φs (i + 1))
+    | i + 1 => op (foldop op (Fin.init φs)) (φs (Fin.last (i + 1)))
 
 instance [Vee α]   : BigVee α   := ⟨foldop Vee.vee⟩
 instance [Wedge α] : BigWedge α := ⟨foldop Wedge.wedge⟩
