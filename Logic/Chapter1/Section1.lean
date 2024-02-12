@@ -73,8 +73,8 @@ def Model.value (w : Model V) (α : S.Formula V) : Bool :=
   | .app _ s φs => I.fns s (fun i => w.value (φs i))
 
 /--
-  A formula `α` (with a finite number of variables) represents a boolean function `f : 𝔹 n` if
-  they are equal under all models.
+  A formula `α` (with a finite number of variables) represents a boolean function `f : 𝔹 n` if they
+  are equal under all models.
 -/
 def Signature.Formula.represents (α : S.Formula (Fin n)) (f : 𝔹 n) : Prop :=
   ∀ (w : Model (Fin n)), w.value α = f w.valuation

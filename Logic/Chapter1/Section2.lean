@@ -145,25 +145,80 @@ theorem bigor_value (φs : [B.Formula V; n + 1]) (w : Model V) :
     simp only [Model.value, Interpretation.fns, bigor_value (Fin.init φs) w, Bool.or_eq_true,
       Matrix.cons_val_zero, Matrix.cons_val_one, Matrix.head_cons, Fin.init, Fin.exists_fin_succ']
 
+def dnf_entry (b : [Bool; n + 1]) : B.Formula (Fin (n + 1)) :=
+  (⋀ fun i => if b i then .var i else ~(.var i))
+
 /--
   Disjunctive normal form. The DNF of a boolean function `f : 𝔹 n` is defined only for `n > 0`.
 -/
 def dnf (f : 𝔹 (n + 1)) : B.Formula (Fin (n + 1)) :=
-  /- A CNF of variables. -/
-  let entry (b : [Bool; (n + 1)]) : B.Formula (Fin (n + 1)) :=
-    ⋀ (fun i => if b i then .var i else ~(.var i))
+  let rec dnf' (inputs : List [Bool; n + 1]) :=
+    match inputs with
+    | [] => ⊥
+    | b::bs => (dnf_entry b) ⋎ (dnf' bs)
 
-  match satisfying_inputs f with
-  | [] => ⊥ -- technically not a DNF, as ⊥ := p ∧ ¬p
-  | b::bs' => ⋁ (entry ∘ (b::bs').get)
+  dnf' (satisfying_inputs f)
 
-/--
-  Theorem 2.1: Every boolean function of at least one variable is represented by its DNF.
--/
-theorem dnf_represents (f : 𝔹 (n + 1)) : (dnf f).represents f := sorry
+theorem model_value_bot {w : Model _} : w.value (⊥ : B.Formula (Fin (n + 1))) = false := by
+  simp only [Model.value, Interpretation.fns, Bool.and_not_self]
+
+theorem model_value_cnf_entry (w : Model _) (b : [Bool; n + 1]) (i : Fin (n + 1)) :
+    w.value (if b i = true then (.var i : B.Formula _) else ~(.var i)) = true ↔ w.valuation i = b i := by
+  by_cases h : b i = true
+  · simp only [h, if_pos h, Model.value]
+  · simp only [h, if_neg h, Model.value, Interpretation.fns, Bool.not_eq_true']
+
+theorem model_value_dnf_entry_eq_true_iff_eq (w : Model _) (b : [Bool; n + 1]) :
+    w.value (dnf_entry b) = true ↔ w.valuation = b := by
+  simp only [dnf_entry, bigand_value, model_value_cnf_entry]
+  exact ⟨funext, congrFun⟩
+
+theorem model_value_dnf_eq_true_iff_mem (w : Model _) (bs : List [Bool; n + 1]) :
+    w.value (dnf.dnf' bs) = true ↔ w.valuation ∈ bs := by
+  match bs with
+  | [] => simp only [List.not_mem_nil, iff_false, Bool.not_eq_true, dnf.dnf', model_value_bot]
+  | b::bs =>
+    simp only [Model.value, Interpretation.fns, Matrix.cons_val_zero, Matrix.cons_val_one, Matrix.head_cons,
+      Bool.or_eq_true, List.mem_cons]
+
+    refine' ⟨
+      fun h => h.elim
+        (fun hw => Or.inl ((model_value_dnf_entry_eq_true_iff_eq w b).mp hw))
+        (fun hw => Or.inr ((model_value_dnf_eq_true_iff_mem w bs).mp hw)),
+      fun h => h.elim
+        (fun hw => Or.inl ((model_value_dnf_entry_eq_true_iff_eq w b).mpr hw))
+        (fun hw => Or.inr ((model_value_dnf_eq_true_iff_mem w bs).mpr hw))
+      ⟩
+
+theorem model_value_dnf_entry_self_eq_true {w : Model (Fin (n + 1))} :
+    w.value (dnf_entry w.valuation) = true :=
+  (model_value_dnf_entry_eq_true_iff_eq w w.valuation).mpr rfl
+
+/-- Theorem 2.1: Every boolean function of at least one variable is represented by its DNF. -/
+theorem dnf_represents (f : 𝔹 (n + 1)) : (dnf f).represents f := by
+  intro w
+
+  match h : satisfying_inputs f with
+  | [] => simp only [h, dnf, dnf.dnf', model_value_bot, (satisfying_inputs_empty_iff f).mp h]
+  | b::bs =>
+    simp only [h, dnf, dnf.dnf', Model.value, Interpretation.fns,
+      Matrix.cons_val_zero, Matrix.cons_val_one, Matrix.head_cons]
+
+    by_cases hw : w.valuation ∈ satisfying_inputs f
+    · rw [(mem_satisfying_inputs_iff f).mp hw]
+      apply Or.elim (List.mem_cons.mp (h ▸ hw))
+      · intro hwb; simp_rw [← hwb, model_value_dnf_entry_self_eq_true, Bool.true_or]
+      · intro hwbs; simp_rw [(model_value_dnf_eq_true_iff_mem w bs).mpr hwbs, Bool.or_true]
+
+    · rw [(not_mem_satisfying_inputs_iff f).mp hw, Bool.or_eq_false_iff]
+      rw [h, List.mem_cons.not, not_or] at hw
+      have left := (model_value_dnf_entry_eq_true_iff_eq w b).not.mpr hw.left
+      have right := (model_value_dnf_eq_true_iff_mem w bs).not.mpr hw.right
+      rw [Bool.not_eq_true] at left right
+
+      exact ⟨left, right⟩
 
 end NormalForm
-
 
 end Section2
 end Chapter1
