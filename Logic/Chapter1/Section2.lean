@@ -278,6 +278,13 @@ theorem cnf_represents (f : 𝔹 (n + 1)) : (cnf f).represents f := by
 
 end CNF
 
+/-- Corollary 2.2: Each formula of finite variables `φ` is equivalent to a DNF and a CNF. -/
+theorem exists_dnf_cnf (φ : B.Formula (Fin (n + 1))) : ∃ (f : 𝔹 (n + 1)), φ ≡ dnf f ∧ φ ≡ cnf f
+    := by
+  refine' ⟨φ.function, _, _⟩
+  · intro w; rw [φ.represents_function, dnf_represents]
+  · intro w; rw [φ.represents_function, cnf_represents]
+
 end NormalForm
 
 end Section2

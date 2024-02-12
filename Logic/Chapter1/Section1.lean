@@ -113,16 +113,15 @@ variable {V : Type _} [Inhabited V] (w : Model V)
 
 @[simp] theorem Model.value_bigwedge {n : ℕ} (φs : [B.Formula V; n + 1]) :
     w.value (⋀ φs) = ⋀ (fun i => w.value (φs i)) := by
-  sorry
-  -- match n with
-  -- | 0 => simp only [BigWedge.one, Fin.forall_fin_one]
-  -- | n + 1 =>
-  --   simp only [BigWedge.apply, value_and, Bool.and_eq_true, value_bigand (Fin.tail φs)]
+  match n with
+  | 0 => rfl
+  | n+1 => simp_rw [BigWedge.apply, value_and, value_bigwedge, Wedge.wedge, Fin.init, Fin.init_def]
 
 @[simp] theorem Model.value_bigvee {n : ℕ} (φs : [B.Formula V; n + 1]) :
     w.value (⋁ φs) = ⋁ (fun i => w.value (φs i)) := by
-  sorry
-
+  match n with
+  | 0 => rfl
+  | n+1 => simp_rw [BigVee.apply, value_or, value_bigvee, Vee.vee, Fin.init, Fin.init_def]
 
 end Model
 
