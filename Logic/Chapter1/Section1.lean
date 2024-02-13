@@ -5,8 +5,7 @@ import «Logic».Chapter1.Notation
 
 open Notation
 
-namespace Chapter1
-namespace Section1
+section Signature
 
 /-- A propositional signature is made up of sets of symbols for each arity `n ∈ ℕ`. -/
 structure Signature where
@@ -29,17 +28,17 @@ inductive Signature.Formula (S : Signature) (V : Type _) where
 class Interpretation (S : Signature) where
   fns : ∀ {n}, S.symbols n → 𝔹 n
 
-inductive Unary | not
-inductive Binary | and | or
+inductive B.Unary | not
+inductive B.Binary | and | or
 
-/-- The common boolean signature `{¬, ∨, ∧}`. -/
-def B : Signature := ⟨fun | 1 => Unary | 2 => Binary | _ => Empty⟩
+/- The common boolean signature `{¬, ∨, ∧}`. -/
+def B : Signature := ⟨fun | 1 => B.Unary | 2 => B.Binary | _ => Empty⟩
 
 instance : Tilde (B.Formula V) := ⟨fun α => .app 1 .not ![α]⟩
 instance : Wedge (B.Formula V) := ⟨fun α β => .app 2 .and ![α, β]⟩
 instance : Vee   (B.Formula V) := ⟨fun α β => .app 2 .or ![α, β]⟩
-instance [I : Inhabited V] : Top (B.Formula V) := ⟨.var I.default ⋎ ~.var I.default⟩
 instance [I : Inhabited V] : Bot (B.Formula V) := ⟨.var I.default ⋏ ~.var I.default⟩
+instance [Inhabited V] : Top (B.Formula V) := ⟨~⊥⟩
 
 /-- The common interpretation of `{¬, ∨, ∧}`. -/
 instance : Interpretation B where
@@ -51,8 +50,10 @@ instance : Interpretation B where
       | .or  => fun b => Bool.or  (b 0) (b 1)
     | 0 | _+3 => fun _ => by contradiction
 
-/-- Boolean formulas with at most `n > 0` variables. -/
-abbrev 𝓕 (n : ℕ+) := B.Formula (Fin n)
+/-- Boolean formulas with at most `n` variables. -/
+notation "𝓕" n => B.Formula (Fin n)
+
+end Signature
 
 
 section Model
@@ -99,11 +100,11 @@ variable {V : Type _} [Inhabited V] (w : Model V)
 @[simp] theorem Model.value_not (α : B.Formula V) : w.value (~α) = Bool.not (w.value α) := by
   simp only [value, Interpretation.fns, Matrix.cons_val_zero, Matrix.cons_val_one, Matrix.head_cons]
 
-@[simp] theorem Model.value_top : w.value (⊤ : B.Formula V) = true := by
-  simp only [Top.top, value_or, value_not, Bool.or_not_self]
-
 @[simp] theorem Model.value_bot : w.value (⊥ : B.Formula V) = false := by
   simp only [Bot.bot, value_and, value_not, Bool.and_not_self]
+
+@[simp] theorem Model.value_top : w.value (⊤ : B.Formula V) = true := by
+  simp only [Top.top, value_or, value_not, value_bot, Bool.not_false]
 
 @[simp] theorem Model.value_ite (b : Bool) (α β : S.Formula V) :
     w.value (if b then α else β) = if b then w.value α else w.value β := by
@@ -128,13 +129,13 @@ end Model
 
 namespace Exercises
 
-inductive Constant | true | false
-inductive Binary' | and | xor
+inductive L.Constant | true | false
+inductive L.Binary | and | xor
 
 /--
   The signature of linear functions, `{⊤, ⊥, ¬, ∧, ⊕}`, where `⊕` is exclusive or.
 -/
-def L : Signature := ⟨fun | 0 => Constant | 1 => Unary | 2 => Binary' | _ => Empty⟩
+def L : Signature := ⟨fun | 0 => L.Constant | 1 => B.Unary | 2 => L.Binary | _ => Empty⟩
 
 instance : Tilde (L.Formula V) := ⟨fun α => .app 1 .not ![α]⟩
 instance : Wedge (L.Formula V) := ⟨fun α β => .app 2 .and ![α, β]⟩
@@ -154,7 +155,7 @@ instance : Interpretation L where
       | .xor => fun b => Bool.xor (b 0) (b 1)
     | _+3 => fun _ => by contradiction
 
-def is_linear (α : L.Formula (Fin n)) (c : [Constant; n + 1]) :=
+def is_linear (α : L.Formula (Fin n)) (c : [L.Constant; n + 1]) :=
   α = ⨁ (fun (i : Fin (n + 1)) => match i with
     | 0 => .app 0 (c 0) ![]
     | k@⟨i + 1, h⟩ => (.app 0 (c k) ![]) ⋏ .var ⟨i, Nat.succ_lt_succ_iff.mp h⟩
@@ -167,7 +168,7 @@ def is_linear (α : L.Formula (Fin n)) (c : [Constant; n + 1]) :=
 class IsLinear (f : 𝔹 n) where
   α : L.Formula (Fin n)
   represents : α.represents f
-  constants : [Constant; n + 1]
+  constants : [L.Constant; n + 1]
   linear : is_linear α constants
 
 /-- Exercise 1a: The representation of linear functions is unique. -/
@@ -180,6 +181,3 @@ proof_wanted compound_formula {φ : B.Formula V} (_ : ∀ p, φ ≠ .var p) :
 /- Exercises 3-4 aren't really statable as they represent formulas as strings. -/
 
 end Exercises
-
-end Section1
-end Chapter1

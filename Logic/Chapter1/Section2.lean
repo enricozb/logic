@@ -4,10 +4,7 @@ import «MathlibExt».Fin
 import «Logic».Chapter1.Notation
 import «Logic».Chapter1.Section1
 
-open Chapter1.Section1 Notation
-
-namespace Chapter1
-namespace Section2
+open Notation
 
 instance : FinEnum Bool := FinEnum.ofList [false, true] (fun b => by
   simp_rw [List.mem_cons, List.not_mem_nil, or_false, Bool.dichotomy])
@@ -15,20 +12,38 @@ instance : FinEnum Bool := FinEnum.ofList [false, true] (fun b => by
 /- Definition and statements about semantic equivalence of formulas. -/
 section SemanticEquivalence
 
+variable {S₁ S₂ : Signature} [Interpretation S₁] [Interpretation S₂]
+
+/--
+  Heterogeneous Semantic Equivalence: Two formulas (of possibly different signatures) are
+  semantically equivalent if they have the same valuation for all models.
+-/
+def semeq' (α : S₁.Formula V) (β : S₂.Formula V) :=
+  ∀ w : Model V, w.value α = w.value β
+
+scoped[Notation] infix:67 " ≡' " => semeq'
+
+@[simp] theorem semeq'_represents {α : S₁.Formula (Fin n)} {β : S₂.Formula (Fin n)} {f : 𝔹 n}
+    (hs : α ≡' β) (hr : α.represents f) : β.represents f := by
+  intro w
+  rw [← hr w, hs w]
+
 variable {V : Type _} {S : Signature} [Interpretation S]
 
 /--
-  Semantic Equivalence: Two formulas (of possibly different signatures) are semantically equivalent
+  Homogenous Semantic Equivalence: Two formulas of the same signature are semantically equivalent
   if they have the same valuation for all models.
 -/
-abbrev semeq (α β : S.Formula V) :=
-  ∀ w : Model V, w.value α = w.value β
+def semeq (α β : S.Formula V) := semeq' α β
 
-scoped infix:67 " ≡ " => semeq
+scoped[Notation] infix:67 " ≡ " => semeq
+
+@[simp] theorem semeq_def {α β : S.Formula V} : α ≡ β ↔ ∀ w : Model V, w.value α = w.value β := by
+  rfl
 
 /-- `≡` is an equivalence relation when comparing formulas of the same signature. -/
 instance : Equivalence (@semeq V S _) where
-  refl := by simp only [semeq, implies_true]
+  refl := by simp only [semeq, semeq', implies_true]
   symm := by intro φ₁ φ₂ h w; exact (h w).symm
   trans := by intro φ₁ φ₂ φ₃ h₁ h₂ w; rw [h₁ w, h₂ w]
 
@@ -40,7 +55,8 @@ theorem semeq_trans {α β χ: S.Formula V} : α ≡ β → β ≡ χ → α ≡
 /-- `≡` is a _congruence relation_ in `B`. -/
 theorem semeq_congr {α α' β β' : B.Formula V} (hα : α ≡ α') (hβ : β ≡ β') :
     (α ⋏ β ≡ α' ⋏ β') ∧ (α ⋎ β ≡ α' ⋎ β') ∧ (~α ≡ ~α') := by
-  simp_rw [semeq, Model.value_and, Model.value_or, Model.value_not, hα, hβ, implies_true, and_self]
+  simp only [semeq_def, hα _, hβ _, Model.value_and, Model.value_or, Model.value_not,
+    implies_true, and_self]
 
 /-- Example semantic equivalences for arbitrary propositional variables `V`. -/
 example (α β : B.Formula V) :
@@ -52,8 +68,9 @@ example (α β : B.Formula V) :
   ~(α ⋏ β) ≡ ~α ⋎ ~β ∧
   ~(α ⋎ β) ≡ ~α ⋏ ~β
   := by
-  simp only [semeq, Model.value_and, Model.value_or, Model.value_not, Bool.not_not, Bool.not_and,
-    Bool.not_or, Bool.and_comm, Bool.and_self, Bool.or_comm, Bool.or_self, implies_true, and_self]
+  simp only [semeq_def, Model.value_and, Model.value_or, Model.value_not, Bool.not_not,
+    Bool.not_and, Bool.not_or, Bool.and_comm, Bool.and_self, Bool.or_comm, Bool.or_self,
+    implies_true, and_self]
 
 /-- Example semantic equivalences for inhabited propositional variables `V`. -/
 example [Inhabited V] (α : B.Formula V) :
@@ -62,10 +79,9 @@ example [Inhabited V] (α : B.Formula V) :
   α ⋏ ⊤  ≡ α ∧
   α ⋎ ⊥  ≡ α
   := by
-  simp_rw [
-    semeq, Model.value_and, Model.value_or, Model.value_not, Model.value_top, Model.value_bot,
-    Bool.or_not_self, Bool.and_true, Bool.or_false, Bool.and_not_self, implies_true, and_self
-  ]
+  simp only [semeq_def, Model.value_and, Model.value_or, Model.value_not, Model.value_top,
+    Model.value_bot, Bool.or_not_self, Bool.and_true, Bool.or_false, Bool.and_not_self,
+    implies_true, and_self]
 
 variable [DecidableEq (S.Formula V)]
 
@@ -79,7 +95,7 @@ def subst (φ α β : S.Formula V) : S.Formula V :=
     | .app a s φs => .app a s (fun i => subst (φs i) α β)
 
 /-- Notation for substitution. `φ[α ↦ β]` substitutes `α` with `β` in `φ`. -/
-scoped notation φ:max "[" α "↦" β "]" => subst φ α β
+scoped[Notation] notation φ:max "[" α "↦" β "]" => subst φ α β
 
 @[simp] theorem subst_self (α β : S.Formula V) : α[α ↦ β] = β := by
   unfold subst
@@ -145,11 +161,11 @@ theorem bigor_value (φs : [B.Formula V; n + 1]) (w : Model V) :
 
 section DNF
 
-def dnf_entry (b : [Bool; n + 1]) : B.Formula (Fin (n + 1)) :=
+def dnf_entry (b : [Bool; n + 1]) : 𝓕 (n + 1) :=
   (⋀ fun i => if b i then .var i else ~(.var i))
 
 /-- Disjunctive normal form. The DNF of a boolean function `f : 𝔹 n` is defined only for `n > 0`. -/
-def dnf (f : 𝔹 (n + 1)) : B.Formula (Fin (n + 1)) :=
+def dnf (f : 𝔹 (n + 1)) : 𝓕 (n + 1) :=
   let rec dnf' (inputs : List [Bool; n + 1]) :=
     match inputs with
     | [] => ⊥
@@ -157,11 +173,11 @@ def dnf (f : 𝔹 (n + 1)) : B.Formula (Fin (n + 1)) :=
 
   dnf' (satisfying_inputs f)
 
-theorem model_value_bot {w : Model _} : w.value (⊥ : B.Formula (Fin (n + 1))) = false := by
+theorem model_value_bot {w : Model _} : w.value (⊥ : 𝓕 (n + 1)) = false := by
   simp only [Model.value, Interpretation.fns, Bool.and_not_self]
 
 theorem model_value_cnf_entry (w : Model _) (b : [Bool; n + 1]) (i : Fin (n + 1)) :
-    w.value (if b i = true then (.var i : B.Formula _) else ~(.var i)) = true ↔ w.valuation i = b i
+    w.value (if b i = true then (.var i : 𝓕 (n + 1)) else ~(.var i)) = true ↔ w.valuation i = b i
     := by
   by_cases h : b i = true
   · simp only [h, if_pos h, Model.value]
@@ -219,11 +235,11 @@ end DNF
 
 section CNF
 
-def cnf_entry (b : [Bool; n + 1]) : B.Formula (Fin (n + 1)) :=
+def cnf_entry (b : [Bool; n + 1]) : 𝓕 (n + 1) :=
   (⋁ fun i => if b i then ~.var i else .var i)
 
 /-- Conjunctive normal form. The CNF of a boolean function `f : 𝔹 n` is defined only for `n > 0`. -/
-def cnf (f : 𝔹 (n + 1)) : B.Formula (Fin (n + 1)) :=
+def cnf (f : 𝔹 (n + 1)) : 𝓕 (n + 1) :=
   let rec cnf' (inputs : List [Bool; n + 1]) :=
     match inputs with
     | [] => ⊤
@@ -231,7 +247,7 @@ def cnf (f : 𝔹 (n + 1)) : B.Formula (Fin (n + 1)) :=
 
   cnf' (satisfying_inputs (~f))
 
-theorem tilde_bot {n : ℕ} : ~(⊥ : B.Formula (Fin (n + 1))) ≡ ⊤ := by
+theorem tilde_bot {n : ℕ} : ~(⊥ : 𝓕 (n + 1)) ≡ ⊤ := by
     intro w
     simp only [Model.value, Interpretation.fns, Bool.not_and, Bool.not_not, Bool.or_comm]
 
@@ -246,27 +262,26 @@ theorem cnf_entry_eq_not_dnf_entry {n : ℕ} (w : Model _) (b : [Bool; n + 1]) :
   simp only [cnf_entry, dnf_entry, Model.value_not, Model.value_bigwedge, Model.value_bigvee,
     Model.value_ite, not_bigwedge, Bool.not_ite, Bool.not_not]
 
-theorem cnf'_congr_not_dnf' {n : ℕ} (bs : List [Bool; n + 1]) : cnf.cnf' bs ≡ ~(dnf.dnf' bs) := by
+theorem cnf'_semeq_not_dnf' {n : ℕ} (bs : List [Bool; n + 1]) : cnf.cnf' bs ≡ ~(dnf.dnf' bs) := by
   intro w
   match bs with
   | [] => simp only [cnf.cnf', dnf.dnf', tilde_bot w]
   | b::bs =>
     simp only [cnf.cnf', dnf.dnf', Model.value_and, Model.value_or, Model.value_not, Bool.not_or,
-      cnf_entry_eq_not_dnf_entry, cnf'_congr_not_dnf' bs w]
+      cnf_entry_eq_not_dnf_entry, cnf'_semeq_not_dnf' bs w]
 
-theorem cnf_congr_not_dnf_not (f : 𝔹 (n + 1)) : cnf f ≡ ~(dnf (~f)) := by
+theorem cnf_semeq_not_dnf_not (f : 𝔹 (n + 1)) : cnf f ≡ ~(dnf (~f)) := by
   intro w
 
   match h : satisfying_inputs (~f) with
-  | [] => simp only [h, cnf, cnf.cnf', dnf, dnf.dnf', tilde_bot]
+  | [] => simp only [h, cnf, cnf.cnf', dnf, dnf.dnf', tilde_bot _]
   | b::bs =>
     simp_rw [cnf, dnf, h, cnf.cnf', dnf.dnf', Model.value_and, Model.value_not, Model.value_or,
-      Bool.not_or, ← cnf_entry_eq_not_dnf_entry w, ← Model.value_not, ← cnf'_congr_not_dnf' bs]
+      Bool.not_or, ← cnf_entry_eq_not_dnf_entry w, ← Model.value_not, ← cnf'_semeq_not_dnf' bs _]
 
-theorem represents_tilde {α : B.Formula _} (h : α.represents f) : (~α).represents (~f) := by
+theorem represents_tilde {α : 𝓕 n} (h : α.represents f) : (~α).represents (~f) := by
   intro w
-  simp only [h w, Tilde.tilde, Model.value, Interpretation.fns, Matrix.cons_val_fin_one,
-    Function.comp]
+  simp_rw [Model.value_not, h w, Tilde.tilde, Function.comp]
 
 /-- Theorem 2.1b: Every boolean function of at least one variable is represented by its CNF. -/
 theorem cnf_represents (f : 𝔹 (n + 1)) : (cnf f).represents f := by
@@ -274,12 +289,12 @@ theorem cnf_represents (f : 𝔹 (n + 1)) : (cnf f).represents f := by
     simp only [Tilde.tilde, Function.comp_def, Bool.not_not]
 
   intro w
-  simp only [cnf_congr_not_dnf_not,  tilde_tilde f ▸ represents_tilde (dnf_represents (~f)) w]
+  simp only [cnf_semeq_not_dnf_not f w,  tilde_tilde f ▸ represents_tilde (dnf_represents (~f)) w]
 
 end CNF
 
 /-- Corollary 2.2: Each formula of finite variables `φ` is equivalent to a DNF and a CNF. -/
-theorem exists_dnf_cnf (φ : B.Formula (Fin (n + 1))) : ∃ (f : 𝔹 (n + 1)), φ ≡ dnf f ∧ φ ≡ cnf f
+theorem exists_dnf_cnf (φ : 𝓕 (n + 1)) : ∃ (f : 𝔹 (n + 1)), φ ≡ dnf f ∧ φ ≡ cnf f
     := by
   refine' ⟨φ.function, _, _⟩
   · intro w; rw [φ.represents_function, dnf_represents]
@@ -287,5 +302,68 @@ theorem exists_dnf_cnf (φ : B.Formula (Fin (n + 1))) : ∃ (f : 𝔹 (n + 1)), 
 
 end NormalForm
 
-end Section2
-end Chapter1
+
+section FunctionalCompleteness
+
+/--
+  A signature is _functional complete_ if every boolean function (of at least one variable) has a
+  reprentation.
+
+  In keeping with the text, boolean functions of zero variables must be ignored. The signature
+  `{¬, ∧, ∨}` cannot represent a boolean function of zero variables because formulas of zero
+  variables do not exist, as there are no _prime_ formulas.
+-/
+def Signature.functional_complete (S : Signature) [Interpretation S] :=
+  ∀ {n}, ∀ f : 𝔹 (n + 1), ∃ φ : S.Formula (Fin (n + 1)), φ.represents f
+
+/-- `{¬, ∧, ∨}` is functional complete. -/
+theorem B.functional_complete : B.functional_complete := by
+  intro n f
+  exact ⟨dnf f, dnf_represents _⟩
+
+/-
+  This section contains the two signatures `{¬, ∨}` and `{¬, ∧}`. Ideally, we could prove that
+  these are both functionally complete. But it is unclear how we could show:
+    1. that `dnf f` contains only `{¬, ∨}`,
+    2. `dnf f` is equivalent to a formula in `{¬, ∨}`.
+
+  These problems are analogous to those with CNFs and `{¬, ∧}`.
+-/
+section SmallerSignatures
+
+inductive B.And | and
+inductive B.Or | or
+
+/-- The boolean signature `{¬, ∧}`. -/
+def Bₐ : Signature := ⟨fun | 1 => B.Unary | 2 => B.And | _ => Empty⟩
+
+instance : Tilde (Bₐ.Formula V) := ⟨fun α => .app 1 .not ![α]⟩
+instance : Wedge (Bₐ.Formula V) := ⟨fun α β => .app 2 .and ![α, β]⟩
+instance [I : Inhabited V] : Bot (Bₐ.Formula V) := ⟨.var I.default ⋏ ~.var I.default⟩
+instance [Inhabited V] : Top (Bₐ.Formula V) := ⟨~⊥⟩
+
+/-- The common interpretation of `{¬, ∧}`. -/
+instance : Interpretation Bₐ where
+  fns := fun {n} => match n with
+    | 1 => fun .not => fun b => Bool.not (b 0)
+    | 2 => fun .and => fun b => Bool.and (b 0) (b 1)
+    | 0 | _+3 => fun _ => by contradiction
+
+/-- The boolean signature `{¬, ∨}`. -/
+def Bₒ : Signature := ⟨fun | 1 => B.Unary | 2 => B.Or | _ => Empty⟩
+
+instance : Tilde (Bₒ.Formula V) := ⟨fun α => .app 1 .not ![α]⟩
+instance : Vee (Bₒ.Formula V) := ⟨fun α β => .app 2 .or ![α, β]⟩
+instance [I : Inhabited V] : Top (Bₒ.Formula V) := ⟨.var I.default ⋎ ~.var I.default⟩
+instance [Inhabited V] : Bot (Bₒ.Formula V) := ⟨~⊤⟩
+
+/-- The common interpretation of `{¬, ∨}`. -/
+instance : Interpretation Bₒ where
+  fns := fun {n} => match n with
+    | 1 => fun .not => fun b => Bool.not (b 0)
+    | 2 => fun .or  => fun b => Bool.or  (b 0) (b 1)
+    | 0 | _+3 => fun _ => by contradiction
+
+end SmallerSignatures
+
+end FunctionalCompleteness
