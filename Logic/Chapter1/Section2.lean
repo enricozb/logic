@@ -427,7 +427,7 @@ section Duality
 class Dual (α : Sort _) where
   dual : α → α
 
-postfix:1024 "ᵈ" => Dual.dual
+scoped [Notation] postfix:1024 "ᵈ" => Dual.dual
 
 def B.dual (α : B.Formula V) : B.Formula V :=
   match α with
@@ -439,9 +439,19 @@ def B.dual (α : B.Formula V) : B.Formula V :=
 instance : Dual (B.Formula V) := ⟨B.dual⟩
 instance : Dual (𝔹 n) := ⟨fun f x => ~ f (~ x)⟩
 
-theorem duality_principle' (α : 𝓕 n) (w : Model (Fin n)) : w.value αᵈ = ~((~w).value α) := by sorry
+theorem duality_principle_value_eq (α : 𝓕 n) (w : Model (Fin n)) : w.value αᵈ = ~((~w).value α) := by
+  match α with
+  | .var v => simp only [Dual.dual, B.dual, Tilde.tilde, Model.value, Bool.not_not]
+  | .app 1 .not φs
+  | .app 2 .and φs
+  | .app 2 .or φs =>
+    have h₀ := duality_principle_value_eq (φs 0) w
+    have h₁ := duality_principle_value_eq (φs 1) w
+    simp only [Dual.dual] at h₀ h₁
+    simp only [Dual.dual, B.dual, Model.value, Interpretation.fns, Tilde.tilde, h₀, h₁,
+      Bool.not_and, Bool.not_or, Matrix.cons_val_zero, Matrix.cons_val_one,  Matrix.head_cons]
 
-/-- The duality principle for two-valued logic. -/
+/-- Theorem 2.4: The duality principle for two-valued logic. -/
 theorem duality_principle {α : 𝓕 n} {f : 𝔹 n} (h : α.represents f) : αᵈ.represents fᵈ := by
   intro w
   let w' : Model (Fin n) := ⟨~w.valuation⟩
@@ -453,8 +463,8 @@ theorem duality_principle {α : 𝓕 n} {f : 𝔹 n} (h : α.represents f) : α�
   | .app 1 .not φs
   | .app 2 .and φs
   | .app 2 .or φs =>
-    have h₀ := duality_principle' (φs 0) w
-    have h₁ := duality_principle' (φs 1) w
+    have h₀ := duality_principle_value_eq (φs 0) w
+    have h₁ := duality_principle_value_eq (φs 1) w
     simp only [Dual.dual] at h₀ h₁
     simp only [Dual.dual, Model.value, Interpretation.fns,
       Matrix.cons_val_zero, Matrix.cons_val_one, Matrix.head_cons]
