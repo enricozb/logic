@@ -41,7 +41,9 @@ instance [Wedge α] : BigWedge α := ⟨foldop Wedge.wedge⟩
 instance [Vee α]   : BigVee α   := ⟨foldop Vee.vee⟩
 instance [Oplus α] : BigOplus α := ⟨foldop Oplus.oplus⟩
 
-instance : Tilde ([Bool; n] → Bool) where tilde f := Bool.not ∘ f
+instance : Tilde Bool where tilde b := Bool.not b
+instance : Tilde (𝔹 n) where tilde f := Bool.not ∘ f
+instance : Tilde ([Bool; n]) where tilde f := Bool.not ∘ f
 instance : Wedge Bool where wedge := Bool.and
 instance : Vee Bool where vee := Bool.or
 

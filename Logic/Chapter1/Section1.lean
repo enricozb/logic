@@ -73,6 +73,8 @@ def Model.value (w : Model V) (α : S.Formula V) : Bool :=
   | .var p => w.valuation p
   | .app _ s φs => I.fns s (fun i => w.value (φs i))
 
+instance : Tilde (Model V) where tilde w := ⟨fun v => ~ (w.valuation v)⟩
+
 /--
   A formula `α` (with a finite number of variables) represents a boolean function `f : 𝔹 n` if they
   are equal under all models.

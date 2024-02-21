@@ -325,7 +325,7 @@ theorem B.functional_complete : B.functional_complete := by
   This section contains the two signatures `{¬, ∨}` and `{¬, ∧}` along with proofs of their
   functional completeness.
 -/
-section SmallerSignatures
+section SmallSignatures
 
 inductive B.And | and
 inductive B.Or | or
@@ -373,7 +373,6 @@ theorem Bₐ.functional_complete : Bₐ.functional_complete := by
   intro w
   rw [of_B_represents _ w, dnf_represents]
 
-
 /-- The boolean signature `{¬, ∨}`. -/
 def Bₒ : Signature := ⟨fun | 1 => B.Unary | 2 => B.Or | _ => Empty⟩
 
@@ -417,6 +416,53 @@ theorem Bₒ.functional_complete : Bₒ.functional_complete := by
   intro w
   rw [of_B_represents _ w, dnf_represents]
 
-end SmallerSignatures
+end SmallSignatures
+
+/-
+  This section concerns the "dual formula map" `δ : B.Formula V → B.Formula V`.
+-/
+section Duality
+
+/-- The dual of a booelan formula or boolean function. -/
+class Dual (α : Sort _) where
+  dual : α → α
+
+postfix:1024 "ᵈ" => Dual.dual
+
+def B.dual (α : B.Formula V) : B.Formula V :=
+  match α with
+  | .var v => .var v
+  | .app 1 .not φs => ~ dual (φs 0)
+  | .app 2 .and φs => dual (φs 0) ⋎ dual (φs 1)
+  | .app 2 .or φs => dual (φs 0) ⋏ dual (φs 1)
+
+instance : Dual (B.Formula V) := ⟨B.dual⟩
+instance : Dual (𝔹 n) := ⟨fun f x => ~ f (~ x)⟩
+
+theorem duality_principle' (α : 𝓕 n) (w : Model (Fin n)) : w.value αᵈ = ~((~w).value α) := by sorry
+
+/-- The duality principle for two-valued logic. -/
+theorem duality_principle {α : 𝓕 n} {f : 𝔹 n} (h : α.represents f) : αᵈ.represents fᵈ := by
+  intro w
+  let w' : Model (Fin n) := ⟨~w.valuation⟩
+  have hw' : w'.valuation = ~w.valuation := rfl
+  match α with
+  | .var v =>
+    simp only [Model.value, Dual.dual, ← hw', ← h w']
+    simp only [hw', Tilde.tilde, Function.comp, Bool.not_not]
+  | .app 1 .not φs
+  | .app 2 .and φs
+  | .app 2 .or φs =>
+    have h₀ := duality_principle' (φs 0) w
+    have h₁ := duality_principle' (φs 1) w
+    simp only [Dual.dual] at h₀ h₁
+    simp only [Dual.dual, Model.value, Interpretation.fns,
+      Matrix.cons_val_zero, Matrix.cons_val_one, Matrix.head_cons]
+    conv => lhs; simp only [h₀, h₁, Tilde.tilde]
+    conv => rhs; rw [← h w']
+    try simp only [Model.value, Interpretation.fns, Tilde.tilde, Function.comp,
+      Bool.not_or, Bool.not_and]
+
+end Duality
 
 end FunctionalCompleteness
