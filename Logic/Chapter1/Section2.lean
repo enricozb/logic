@@ -322,12 +322,8 @@ theorem B.functional_complete : B.functional_complete := by
   exact ⟨dnf f, dnf_represents _⟩
 
 /-
-  This section contains the two signatures `{¬, ∨}` and `{¬, ∧}`. Ideally, we could prove that
-  these are both functionally complete. But it is unclear how we could show:
-    1. that `dnf f` contains only `{¬, ∨}`,
-    2. `dnf f` is equivalent to a formula in `{¬, ∨}`.
-
-  These problems are analogous to those with CNFs and `{¬, ∧}`.
+  This section contains the two signatures `{¬, ∨}` and `{¬, ∧}` along with proofs of their
+  functional completeness.
 -/
 section SmallerSignatures
 
@@ -349,6 +345,35 @@ instance : Interpretation Bₐ where
     | 2 => fun .and => fun b => Bool.and (b 0) (b 1)
     | 0 | _+3 => fun _ => by contradiction
 
+def Bₐ.of_B (α : B.Formula V) : Bₐ.Formula V :=
+  match α with
+  | .var v => .var v
+  | .app 1 .not φs => ~ (Bₐ.of_B (φs 0))
+  | .app 2 .and φs => Bₐ.of_B (φs 0) ⋏ Bₐ.of_B (φs 1)
+  | .app 2 .or φs => ~ (~ Bₐ.of_B (φs 0) ⋏ ~ Bₐ.of_B (φs 1))
+
+def Bₐ.of_B_represents (α : B.Formula V) : (Bₐ.of_B α) ≡' α := by
+  intro w
+  match α with
+  | .var v => rfl
+  | .app 1 .not φs =>
+    simp only [of_B, Model.value, Interpretation.fns, Matrix.cons_val_fin_one,
+      Bₐ.of_B_represents (φs 0) w]
+  | .app 2 .and φs =>
+    simp only [of_B, Model.value, Interpretation.fns, Matrix.cons_val_zero, Matrix.cons_val_one,
+      Matrix.head_cons, Bₐ.of_B_represents (φs 0) w, Bₐ.of_B_represents (φs 1) w]
+  | .app 2 .or φs =>
+    simp only [of_B, Model.value, Interpretation.fns, Matrix.cons_val_zero, Matrix.cons_val_one,
+      Matrix.head_cons, Bₐ.of_B_represents (φs 0) w, Bₐ.of_B_represents (φs 1) w, Bool.not_and,
+      Bool.not_not]
+
+theorem Bₐ.functional_complete : Bₐ.functional_complete := by
+  intro n f
+  refine' ⟨Bₐ.of_B (dnf f), _⟩
+  intro w
+  rw [of_B_represents _ w, dnf_represents]
+
+
 /-- The boolean signature `{¬, ∨}`. -/
 def Bₒ : Signature := ⟨fun | 1 => B.Unary | 2 => B.Or | _ => Empty⟩
 
@@ -363,6 +388,34 @@ instance : Interpretation Bₒ where
     | 1 => fun .not => fun b => Bool.not (b 0)
     | 2 => fun .or  => fun b => Bool.or  (b 0) (b 1)
     | 0 | _+3 => fun _ => by contradiction
+
+def Bₒ.of_B (α : B.Formula V) : Bₒ.Formula V :=
+  match α with
+  | .var v => .var v
+  | .app 1 .not φs => ~ (Bₒ.of_B (φs 0))
+  | .app 2 .or φs => Bₒ.of_B (φs 0) ⋎ Bₒ.of_B (φs 1)
+  | .app 2 .and φs => ~ (~ Bₒ.of_B (φs 0) ⋎ ~ Bₒ.of_B (φs 1))
+
+def Bₒ.of_B_represents (α : B.Formula V) : (Bₒ.of_B α) ≡' α := by
+  intro w
+  match α with
+  | .var v => rfl
+  | .app 1 .not φs =>
+    simp only [of_B, Model.value, Interpretation.fns, Matrix.cons_val_fin_one,
+      Bₒ.of_B_represents (φs 0) w]
+  | .app 2 .or φs =>
+    simp only [of_B, Model.value, Interpretation.fns, Matrix.cons_val_zero, Matrix.cons_val_one,
+      Matrix.head_cons, Bₒ.of_B_represents (φs 0) w, Bₒ.of_B_represents (φs 1) w]
+  | .app 2 .and φs =>
+    simp only [of_B, Model.value, Interpretation.fns, Matrix.cons_val_zero, Matrix.cons_val_one,
+      Matrix.head_cons, Bₒ.of_B_represents (φs 0) w, Bₒ.of_B_represents (φs 1) w, Bool.not_or,
+      Bool.not_not]
+
+theorem Bₒ.functional_complete : Bₒ.functional_complete := by
+  intro n f
+  refine' ⟨Bₒ.of_B (dnf f), _⟩
+  intro w
+  rw [of_B_represents _ w, dnf_represents]
 
 end SmallerSignatures
 
