@@ -52,14 +52,16 @@ theorem semeq_symm {α β : S.Formula V} : α ≡ β → β ≡ α := instEquiva
 theorem semeq_trans {α β χ: S.Formula V} : α ≡ β → β ≡ χ → α ≡ χ :=
   instEquivalenceFormulaSemeq.trans
 
+variable {S : Signature} [Interpretation S] {V : Type _} [B : S.Boolean V]
+
 /-- `≡` is a _congruence relation_ in `B`. -/
-theorem semeq_congr {α α' β β' : B.Formula V} (hα : α ≡ α') (hβ : β ≡ β') :
+theorem semeq_congr {α α' β β' : S.Formula V} (hα : α ≡ α') (hβ : β ≡ β') :
     (α ⋏ β ≡ α' ⋏ β') ∧ (α ⋎ β ≡ α' ⋎ β') ∧ (~α ≡ ~α') := by
   simp only [semeq_def, hα _, hβ _, Model.value_and, Model.value_or, Model.value_not,
     implies_true, and_self]
 
 /-- Example semantic equivalences for arbitrary propositional variables `V`. -/
-example (α β : B.Formula V) :
+example (α β : S.Formula V) :
   α ≡ ~~α ∧
   α ⋏ β ≡ β ⋏ α ∧
   α ⋎ β ≡ β ⋎ α ∧
@@ -73,7 +75,7 @@ example (α β : B.Formula V) :
     implies_true, and_self]
 
 /-- Example semantic equivalences for inhabited propositional variables `V`. -/
-example [Inhabited V] (α : B.Formula V) :
+example [Inhabited V] (α : S.Formula V) :
   α ⋎ ~α ≡ ⊤ ∧
   α ⋏ ~α ≡ ⊥ ∧
   α ⋏ ⊤  ≡ α ∧
@@ -83,7 +85,11 @@ example [Inhabited V] (α : B.Formula V) :
     Model.value_bot, Bool.or_not_self, Bool.and_true, Bool.or_false, Bool.and_not_self,
     implies_true, and_self]
 
-variable [DecidableEq (S.Formula V)]
+end SemanticEquivalence
+
+section Substitution
+
+variable {S : Signature} [Interpretation S] [DecidableEq (S.Formula V)]
 
 /-- Substitutes instances of `α` with `β` in `φ`. -/
 def subst (φ α β : S.Formula V) : S.Formula V :=
@@ -116,7 +122,7 @@ theorem semeq_of_susbst_semeq (α β φ : S.Formula V) (h : α ≡ β) : φ[α �
     · intro w
       simp only [subst, if_neg hφs, semeq, Model.value, Interpretation.fns, ←φs_ih _ w]
 
-end SemanticEquivalence
+end Substitution
 
 section NormalForm
 
@@ -302,7 +308,6 @@ theorem exists_dnf_cnf (φ : 𝓕 (n + 1)) : ∃ (f : 𝔹 (n + 1)), φ ≡ dnf 
 
 end NormalForm
 
-
 section FunctionalCompleteness
 
 /--
@@ -335,6 +340,7 @@ def Bₐ : Signature := ⟨fun | 1 => B.Unary | 2 => B.And | _ => Empty⟩
 
 instance : Tilde (Bₐ.Formula V) := ⟨fun α => .app 1 .not ![α]⟩
 instance : Wedge (Bₐ.Formula V) := ⟨fun α β => .app 2 .and ![α, β]⟩
+instance : Vee (Bₐ.Formula V) := ⟨fun α β => ~(~α ⋏ ~β)⟩
 instance [I : Inhabited V] : Bot (Bₐ.Formula V) := ⟨.var I.default ⋏ ~.var I.default⟩
 instance [Inhabited V] : Top (Bₐ.Formula V) := ⟨~⊥⟩
 
@@ -345,9 +351,6 @@ instance : Interpretation Bₐ where
     | 2 => fun .and => fun b => Bool.and (b 0) (b 1)
     | 0 | _+3 => fun _ => by contradiction
 
-@[simp] theorem Bₐ.not (α : Bₐ.Formula V) : ~α = .app 1 .not ![α] := rfl
-@[simp] theorem Bₐ.and (α β : Bₐ.Formula V) : α ⋏ β = .app 2 .and ![α, β] := rfl
-
 /-- Principle of (boolean) formula induction for `{¬, ∧}`. -/
 theorem Bₐ.induction {V : Type _} {P : Bₐ.Formula V → Prop}
     (var : ∀ v, P (.var v)) (not : ∀ α, P α → P (~α)) (and : ∀ α β, P α → P β → P (α ⋏ β))
@@ -355,11 +358,22 @@ theorem Bₐ.induction {V : Type _} {P : Bₐ.Formula V → Prop}
   match φ with
   | .var v => exact var v
   | .app 1 .not φs =>
-    rw [← Fin.Tuple.literal_1 φs, ← Bₐ.not]
+    simp only [Tilde.tilde, Fin.Tuple.literal_1 φs] at not
+    rw [← Fin.Tuple.literal_1 φs]
     exact not _ (Bₐ.induction var not and (φs 0))
   | .app 2 .and φs =>
-    rw [← Fin.Tuple.literal_2 φs, ← Bₐ.and]
+    simp only [Wedge.wedge, Fin.Tuple.literal_2 φs] at and
+    rw [← Fin.Tuple.literal_2 φs]
     exact and _ _ (Bₐ.induction var not and (φs 0)) (Bₐ.induction var not and (φs 1))
+
+/-- `Bₐ` is equivalent to the common boolean signature `{¬, ∧, ∨}`. -/
+instance {V : Type _} : Signature.Boolean Bₐ V where
+  not := by simp only [Model.value, Interpretation.fns, Matrix.cons_val_fin_one, implies_true]
+  and := by simp only [Model.value, Interpretation.fns, Matrix.cons_val_zero, Matrix.cons_val_one,
+    Matrix.head_cons, implies_true]
+  or := by simp only [Model.value, Interpretation.fns, Matrix.cons_val_fin_one, Bool.not_and,
+    Bool.not_not, implies_true]
+  induction P var not and _ φ := Bₐ.induction var not and φ
 
 def Bₐ.of_B (α : B.Formula V) : Bₐ.Formula V :=
   match α with

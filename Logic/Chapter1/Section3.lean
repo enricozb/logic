@@ -24,7 +24,7 @@ instance {S : Signature} [Interpretation S] : Satisfies (Set (S.Formula V)) (S.F
 instance {S : Signature} [Interpretation S] : Satisfies (Set (S.Formula V)) (Set (S.Formula V)) where
   satisfies X Y := ∀ α ∈ Y, X ⊨ α
 
-variable {S : Signature} [Interpretation S]
+variable {S : Signature} [Interpretation S] {V : Type _} [B : S.Boolean V]
 
 @[simp] theorem Model.satisfies_formula (w : Model V) {α : S.Formula V} :
     w ⊨ α ↔ w.value α := by
@@ -39,15 +39,15 @@ variable {S : Signature} [Interpretation S]
   simp only [Satisfies.satisfies, Set.union_singleton, Set.mem_insert_iff, forall_eq_or_imp,
     and_comm]
 
-@[simp] theorem Model.satisfies_not (w : Model V) {α : B.Formula V} :
+@[simp] theorem Model.satisfies_not (w : Model V) {α : S.Formula V} :
     w ⊨ ~α ↔ w ⊭ α := by
   simp only [satisfies_formula, value_not, Bool.not_eq_true, Bool.not_eq_true']
 
-@[simp] theorem Model.satisfies_and (w : Model V) {α β : B.Formula V} :
+@[simp] theorem Model.satisfies_and (w : Model V) {α β : S.Formula V} :
     w ⊨ α ⋏ β ↔ w ⊨ α ∧ w ⊨ β := by
   simp only [satisfies_formula, value_and, Bool.and_eq_true]
 
-@[simp] theorem Model.satisfies_or (w : Model V) {α β : B.Formula V} :
+@[simp] theorem Model.satisfies_or (w : Model V) {α β : S.Formula V} :
     w ⊨ α ⋎ β ↔ w ⊨ α ∨ w ⊨ β := by
   simp only [satisfies_formula, value_or, Bool.or_eq_true]
 
@@ -63,31 +63,31 @@ def Signature.Formula.tautology (α : S.Formula V) := ∀ w : Model V, w ⊨ α
 
 def Signature.Formula.contradiction (α : S.Formula V) := ∀ w : Model V, w ⊭ α
 
-example (p : B.Formula V) : (p ⋎ ~p).tautology := by
+example (p : S.Formula V) : (p ⋎ ~p).tautology := by
   intro w
   by_cases hp : w.value p
   · simp only [Model.satisfies_formula, Model.value_or, hp, Bool.true_or]
   · simp only [Model.satisfies_formula, Model.value_or, Model.value_not, hp,
     Bool.not_false, Bool.or_true]
 
-example (p : B.Formula V) : (p ⋏ ~p).contradiction := by
+example (p : S.Formula V) : (p ⋏ ~p).contradiction := by
   intro w
   by_cases hp : w.value p
   all_goals
   · simp only [Model.satisfies_formula, Model.value_and, Model.value_not, hp, Bool.not_true,
     Bool.and_false, Bool.false_and, not_false_eq_true]
 
-example (α β : B.Formula V) : ({α, β} : Set _) ⊨ α ⋏ β := by
+example (α β : S.Formula V) : ({α, β} : Set _) ⊨ α ⋏ β := by
   simp only [Satisfies.satisfies, Model.value_and, Set.mem_insert_iff,
     Set.mem_singleton_iff, Bool.and_eq_true,
     imp_self, implies_true, forall_eq_or_imp, forall_eq]
 
-example (α β : B.Formula V) : ({α ⋏ β} : Set _) ⊨ ({α, β} : Set _) := by
+example (α β : S.Formula V) : ({α ⋏ β} : Set _) ⊨ ({α, β} : Set _) := by
   simp only [Satisfies.satisfies, Model.value_and, Set.mem_insert_iff, Set.mem_singleton_iff,
     Bool.and_eq_true, forall_eq, and_imp, forall_eq_or_imp, imp_self, implies_true, and_true]
   exact fun _ ha _ => ha
 
-example [Inhabited V] (X : Set (B.Formula V)) (α : B.Formula V) (hX : X ⊨ (⊥ : B.Formula V)) :
+example [Inhabited V] (X : Set (S.Formula V)) (α : S.Formula V) (hX : X ⊨ (⊥ : S.Formula V)) :
     X ⊨ α := by
   simp only [Satisfies.satisfies]
   simp only [Satisfies.satisfies, Model.value_bot, imp_false, not_forall, Bool.not_eq_true,
@@ -97,7 +97,7 @@ example [Inhabited V] (X : Set (B.Formula V)) (α : B.Formula V) (hX : X ⊨ (�
   rw [hw β hβmem] at hβval
   contradiction
 
-example (X : Set (B.Formula V)) (α β : B.Formula V) (h₁ : X ∪ {α} ⊨ β) (h₂ : X ∪ {~α} ⊨ β) :
+example (X : Set (S.Formula V)) (α β : S.Formula V) (h₁ : X ∪ {α} ⊨ β) (h₂ : X ∪ {~α} ⊨ β) :
     X ⊨ β := by
   simp only [Satisfies.satisfies]
   intro w hw
@@ -149,7 +149,7 @@ instance : FunLike (Substitution S V) (S.Formula V) (S.Formula V) :=
 
 @[simp] theorem Substitution.map_formula_not (σ : Substitution B V) {α : B.Formula V} :
     σ (~α) = ~(σ α) := by
-  simp only [B.not, coe_fun_map_eq, map_formula, Matrix.cons_val_fin_one,
+  simp only [Tilde.tilde, coe_fun_map_eq, map_formula, Matrix.cons_val_fin_one,
     Signature.Formula.app.injEq, heq_eq_eq, true_and]
   ext v
   simp only [Matrix.cons_val_fin_one]
@@ -161,7 +161,7 @@ instance : FunLike (Substitution S V) (S.Formula V) (S.Formula V) :=
     match v with
     | ⟨0, _⟩ => simp only [Fin.zero_eta, Matrix.cons_val_zero]
     | ⟨1, _⟩ => simp only [Fin.mk_one, Matrix.cons_val_one, Matrix.head_cons]
-  simp_rw [B.and, coe_fun_map_eq, map_formula, this]
+  simp_rw [Wedge.wedge, coe_fun_map_eq, map_formula, this]
 
 @[simp] theorem Substitution.map_formula_or (σ : Substitution B V) {α β : B.Formula V} :
     σ (α ⋎ β) = (σ α) ⋎ (σ β) := by
@@ -170,7 +170,7 @@ instance : FunLike (Substitution S V) (S.Formula V) (S.Formula V) :=
     match v with
     | ⟨0, _⟩ => simp only [Fin.zero_eta, Matrix.cons_val_zero]
     | ⟨1, _⟩ => simp only [Fin.mk_one, Matrix.cons_val_one, Matrix.head_cons]
-  simp_rw [B.or, coe_fun_map_eq, map_formula, this]
+  simp_rw [Vee.vee, coe_fun_map_eq, map_formula, this]
 
 theorem Substitution.model_satisfies_iff (σ : Substitution B V) {w : Model V}
     {α : B.Formula V} : w ⊨ σ α ↔ σ.map_model w ⊨ α := by
@@ -216,7 +216,7 @@ namespace ConsequenceRel
 /--
   Finitary consequence relations require only finitely many formulas for any logical consequence.
 -/
-class Finatary {S : Signature} (V : Type _)
+class Finitary {S : Signature} (V : Type _)
     (r : Set (S.Formula V) → S.Formula V → Prop) [ConsequenceRel r] where
   fin (h : r X α) : ∃ X₀ ⊆ X, X₀.Finite ∧ r X₀ α
 
