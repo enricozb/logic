@@ -1,6 +1,7 @@
 import Mathlib.Data.Fin.VecNotation
 import Mathlib.Data.FunLike.Basic
 import Mathlib.Data.PNat.Defs
+import «MathlibExt».Fin
 import «Logic».Chapter1.Notation
 
 open Notation
@@ -52,6 +53,26 @@ instance : Interpretation B where
 
 /-- Boolean formulas with at most `n` variables. -/
 notation "𝓕" n => B.Formula (Fin n)
+
+@[simp] theorem B.not (α : B.Formula V) : ~α = .app 1 .not ![α] := rfl
+@[simp] theorem B.and (α β : B.Formula V) : α ⋏ β = .app 2 .and ![α, β] := rfl
+@[simp] theorem B.or (α β : B.Formula V) : α ⋎ β = .app 2 .or ![α, β] := rfl
+
+theorem B.induction {V : Type _} {P : B.Formula V → Prop}
+    (var : ∀ v, P (.var v)) (not : ∀ α, P α → P (~α))
+    (and : ∀ α β, P α → P β → P (α ⋏ β)) (or : ∀ α β, P α → P β → P (α ⋎ β))
+    (φ : B.Formula V) : P φ := by
+  match φ with
+  | .var v => exact var v
+  | .app 1 .not φs =>
+    rw [← Fin.Tuple.literal_1 φs, ← B.not]
+    exact not _ (B.induction var not and or (φs 0))
+  | .app 2 .and φs =>
+    rw [← Fin.Tuple.literal_2 φs, ← B.and]
+    exact and _ _ (B.induction var not and or (φs 0)) (B.induction var not and or (φs 1))
+  | .app 2 .or φs =>
+    rw [← Fin.Tuple.literal_2 φs, ← B.or]
+    exact or _ _ (B.induction var not and or (φs 0)) (B.induction var not and or (φs 1))
 
 end Signature
 

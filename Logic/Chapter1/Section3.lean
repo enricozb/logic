@@ -1,3 +1,4 @@
+import Mathlib.Data.FunLike.Basic
 import «Logic».Chapter1.Section2
 
 open Notation
@@ -37,9 +38,17 @@ variable {S : Signature} [Interpretation S]
   simp only [Satisfies.satisfies, Set.union_singleton, Set.mem_insert_iff, forall_eq_or_imp,
     and_comm]
 
-@[simp] theorem Model.not_satisfies_formula (w : Model V) {α : B.Formula V} :
-    w ⊭ α ↔ w ⊨ ~α := by
+@[simp] theorem Model.satisfies_not (w : Model V) {α : B.Formula V} :
+    w ⊨ ~α ↔ w ⊭ α := by
   simp only [satisfies_formula, value_not, Bool.not_eq_true, Bool.not_eq_true']
+
+@[simp] theorem Model.satisfies_and (w : Model V) {α β : B.Formula V} :
+    w ⊨ α ⋏ β ↔ w ⊨ α ∧ w ⊨ β := by
+  simp only [satisfies_formula, value_and, Bool.and_eq_true]
+
+@[simp] theorem Model.satisfies_or (w : Model V) {α β : B.Formula V} :
+    w ⊨ α ⋎ β ↔ w ⊨ α ∨ w ⊨ β := by
+  simp only [satisfies_formula, value_or, Bool.or_eq_true]
 
 @[simp] theorem Signature.Formula.satisfies_formula (X : Set (S.Formula V)) (α : S.Formula V) :
     X ⊨ α ↔ ∀ w : Model V, w ⊨ X → w ⊨ α  := by
@@ -93,6 +102,92 @@ example (X : Set (B.Formula V)) (α β : B.Formula V) (h₁ : X ∪ {α} ⊨ β)
   intro w hw
   by_cases hα : w ⊨ α
   · exact h₁ w (w.satisfies_union.mpr ⟨hw, hα⟩)
-  · exact h₂ w (w.satisfies_union.mpr ⟨hw, w.not_satisfies_formula.mp hα⟩)
+  · exact h₂ w (w.satisfies_union.mpr ⟨hw, w.satisfies_not.mpr hα⟩)
 
 end Satisfiability
+
+section Substitution
+
+structure Substitution (S : Signature) (V : Type _) where
+  values : V → S.Formula V
+
+namespace Substitution
+
+variable {S : Signature} [Interpretation S] {V : Type _}
+
+/-- Induced substitution mapping on formulas. -/
+def map_formula (σ : Substitution S V) : S.Formula V → S.Formula V
+  | .var v => σ.values v
+  | .app a s φs => .app a s (fun i => σ.map_formula (φs i))
+
+theorem map_formula_injective : Function.Injective (@map_formula S V) := by
+  simp only [Function.Injective]
+  intro σ₁ σ₂ h
+  have h_values : σ₁.values = σ₂.values := by
+    funext v
+    have : σ₁.map_formula (.var v) = σ₁.values v := rfl
+    rw [← this, h, map_formula]
+  calc
+  σ₁ = ⟨σ₁.values⟩ := rfl
+  _  = ⟨σ₂.values⟩ := by rw [h_values]
+
+/-- Induced substitution mapping on models. -/
+def map_model (σ : Substitution S V) : Model V → Model V := fun w =>
+  ⟨fun v => w.value (σ.values v)⟩
+
+end Substitution
+
+instance : FunLike (Substitution S V) (S.Formula V) (S.Formula V) :=
+  ⟨Substitution.map_formula, Substitution.map_formula_injective⟩
+
+@[simp] theorem Substitution.coe_fun_map_eq (σ : Substitution S V) {α : S.Formula V} :
+    σ α = σ.map_formula α := rfl
+
+@[simp] theorem Substitution.map_var (σ : Substitution B V) {v : V} :
+    σ (.var v) = σ.values v := rfl
+
+@[simp] theorem Substitution.map_formula_not (σ : Substitution B V) {α : B.Formula V} :
+    σ (~α) = ~(σ α) := by
+  simp only [B.not, coe_fun_map_eq, map_formula, Matrix.cons_val_fin_one,
+    Signature.Formula.app.injEq, heq_eq_eq, true_and]
+  ext v
+  simp only [Matrix.cons_val_fin_one]
+
+@[simp] theorem Substitution.map_formula_and (σ : Substitution B V) {α β : B.Formula V} :
+    σ (α ⋏ β) = (σ α) ⋏ (σ β) := by
+  have : (fun i => map_formula σ (![α, β] i)) = ![map_formula σ α, map_formula σ β] := by
+    ext v
+    match v with
+    | ⟨0, _⟩ => simp only [Fin.zero_eta, Matrix.cons_val_zero]
+    | ⟨1, _⟩ => simp only [Fin.mk_one, Matrix.cons_val_one, Matrix.head_cons]
+  simp_rw [B.and, coe_fun_map_eq, map_formula, this]
+
+@[simp] theorem Substitution.map_formula_or (σ : Substitution B V) {α β : B.Formula V} :
+    σ (α ⋎ β) = (σ α) ⋎ (σ β) := by
+  have : (fun i => map_formula σ (![α, β] i)) = ![map_formula σ α, map_formula σ β] := by
+    ext v
+    match v with
+    | ⟨0, _⟩ => simp only [Fin.zero_eta, Matrix.cons_val_zero]
+    | ⟨1, _⟩ => simp only [Fin.mk_one, Matrix.cons_val_one, Matrix.head_cons]
+  simp_rw [B.or, coe_fun_map_eq, map_formula, this]
+
+theorem Substitution.model_satisfies_iff (σ : Substitution B V) {w : Model V}
+    {α : B.Formula V} : w ⊨ σ α ↔ σ.map_model w ⊨ α := by
+  induction α using B.induction with
+  | var v => simp_rw [map_var, Satisfies.satisfies, map_model, Model.value]
+  | not α hi => simp_rw [map_formula_not, Model.satisfies_not, hi]
+  | and α β hα hβ => simp_rw [map_formula_and, Model.satisfies_and, hα, hβ]
+  | or α β hα hβ => simp_rw [map_formula_or, Model.satisfies_or, hα, hβ]
+
+theorem Substitution.model_satisfies_set_iff (σ : Substitution B V) {w : Model V}
+    {X : Set (B.Formula V)} : w ⊨ σ '' X ↔ σ.map_model w ⊨ X := by
+  simp only [Model.satisfies_set, Set.mem_image, forall_exists_index,
+      and_imp, forall_apply_eq_imp_iff₂, σ.model_satisfies_iff]
+
+theorem Substitution.invariance
+    [Interpretation S] (σ : Substitution B V) {X : Set (B.Formula V)} {α : B.Formula V} :
+    X ⊨ α → σ '' X ⊨ σ α := by
+  intro hα w hw
+  exact σ.model_satisfies_iff.mpr (hα (σ.map_model w) (σ.model_satisfies_set_iff.mp hw))
+
+end Substitution
