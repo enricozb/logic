@@ -10,7 +10,7 @@ class Satisfies (α : Sort _) (β : Sort _) where
   satisfies : α → β → Prop
 
 scoped[Notation] infix:50 " ⊨ " => Satisfies.satisfies
-scoped[Notation] infix:50 " ⊭ " => fun a b => ¬(a ⊨ b)
+scoped[Notation] infix:50 " ⊭ " => fun a b => ¬ a ⊨ b
 
 instance {S : Signature} [Interpretation S] : Satisfies (Model V) (S.Formula V) where
   satisfies w α := w.value α

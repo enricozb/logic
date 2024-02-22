@@ -345,6 +345,22 @@ instance : Interpretation Bₐ where
     | 2 => fun .and => fun b => Bool.and (b 0) (b 1)
     | 0 | _+3 => fun _ => by contradiction
 
+@[simp] theorem Bₐ.not (α : Bₐ.Formula V) : ~α = .app 1 .not ![α] := rfl
+@[simp] theorem Bₐ.and (α β : Bₐ.Formula V) : α ⋏ β = .app 2 .and ![α, β] := rfl
+
+/-- Principle of (boolean) formula induction for `{¬, ∧}`. -/
+theorem Bₐ.induction {V : Type _} {P : Bₐ.Formula V → Prop}
+    (var : ∀ v, P (.var v)) (not : ∀ α, P α → P (~α)) (and : ∀ α β, P α → P β → P (α ⋏ β))
+    (φ : Bₐ.Formula V) : P φ := by
+  match φ with
+  | .var v => exact var v
+  | .app 1 .not φs =>
+    rw [← Fin.Tuple.literal_1 φs, ← Bₐ.not]
+    exact not _ (Bₐ.induction var not and (φs 0))
+  | .app 2 .and φs =>
+    rw [← Fin.Tuple.literal_2 φs, ← Bₐ.and]
+    exact and _ _ (Bₐ.induction var not and (φs 0)) (Bₐ.induction var not and (φs 1))
+
 def Bₐ.of_B (α : B.Formula V) : Bₐ.Formula V :=
   match α with
   | .var v => .var v

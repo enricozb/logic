@@ -58,6 +58,7 @@ notation "𝓕" n => B.Formula (Fin n)
 @[simp] theorem B.and (α β : B.Formula V) : α ⋏ β = .app 2 .and ![α, β] := rfl
 @[simp] theorem B.or (α β : B.Formula V) : α ⋎ β = .app 2 .or ![α, β] := rfl
 
+/-- Principle of (boolean) formula induction. -/
 theorem B.induction {V : Type _} {P : B.Formula V → Prop}
     (var : ∀ v, P (.var v)) (not : ∀ α, P α → P (~α))
     (and : ∀ α β, P α → P β → P (α ⋏ β)) (or : ∀ α β, P α → P β → P (α ⋎ β))
