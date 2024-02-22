@@ -1,4 +1,5 @@
 import Mathlib.Data.FunLike.Basic
+import Mathlib.Data.Set.Finite
 import «Logic».Chapter1.Section2
 
 open Notation
@@ -25,7 +26,7 @@ instance {S : Signature} [Interpretation S] : Satisfies (Set (S.Formula V)) (Set
 
 variable {S : Signature} [Interpretation S]
 
-@[simp] theorem Model.satisfies_formula (w : Model V) (α : S.Formula V) :
+@[simp] theorem Model.satisfies_formula (w : Model V) {α : S.Formula V} :
     w ⊨ α ↔ w.value α := by
   rfl
 
@@ -184,6 +185,7 @@ theorem Substitution.model_satisfies_set_iff (σ : Substitution B V) {w : Model 
   simp only [Model.satisfies_set, Set.mem_image, forall_exists_index,
       and_imp, forall_apply_eq_imp_iff₂, σ.model_satisfies_iff]
 
+/-- Substitution invariance, names property (S) in the text. e-/
 theorem Substitution.invariance
     [Interpretation S] (σ : Substitution B V) {X : Set (B.Formula V)} {α : B.Formula V} :
     X ⊨ α → σ '' X ⊨ σ α := by
@@ -191,3 +193,49 @@ theorem Substitution.invariance
   exact σ.model_satisfies_iff.mpr (hα (σ.map_model w) (σ.model_satisfies_set_iff.mp hw))
 
 end Substitution
+
+/--
+  Consequence relations.
+
+  > These are relations `⊢` between sets of formulas and formulas of an arbitrary propositional
+  > language F that has the properties corresponding to `refl`, `mono`, `trans`, and `invar`. These
+  > properties are the starting point for a general and strong theory of logical systems created by
+  > Tarski, which underpins nearly all logical systems considered in the literature.
+
+  (Paraphrased from page 20)
+-/
+class ConsequenceRel {S : Signature} {V : Type _}
+    (r : Set (S.Formula V) → S.Formula V → Prop) where
+  refl (h : α ∈ X) : r X α
+  mono (h₁ : r X α) (h₂ : X ⊆ X') : r X' α
+  trans (h₁ : ∀ γ ∈ Y, r X γ) (h₂ : r Y α) : r X α
+  invar (σ : Substitution S V) (h : r X α) : r (σ '' X) (σ α)
+
+namespace ConsequenceRel
+
+/--
+  Finitary consequence relations require only finitely many formulas for any logical consequence.
+-/
+class Finatary {S : Signature} (V : Type _)
+    (r : Set (S.Formula V) → S.Formula V → Prop) [ConsequenceRel r] where
+  fin (h : r X α) : ∃ X₀ ⊆ X, X₀.Finite ∧ r X₀ α
+
+end ConsequenceRel
+
+theorem semantic_deduction_theorem (X : Set (B.Formula V)) (α β : B.Formula V) :
+    X ∪ {α} ⊨ β ↔ X ⊨ α ⟶ β := by
+  apply Iff.intro
+  · intro h w hwX
+    simp only [Arrow.arrow, Satisfies.satisfies, Model.value_not, Model.value_and, Bool.not_and]
+    by_cases hα : w ⊨ α
+    · have hwβ : w ⊨ β := h w (w.satisfies_union.mpr ⟨hwX, hα⟩)
+      simp only [Satisfies.satisfies] at hwβ
+      simp only [hwβ, Bool.not_true, Bool.not_false, Bool.or_true]
+    · simp only [Satisfies.satisfies, Bool.not_eq_true] at hα
+      simp only [hα, Bool.not_false, Bool.true_or]
+  · intro h w hwXα
+    have ⟨hwX, hwα⟩ := w.satisfies_union.mp hwXα
+    have hwXαβ := h w hwX
+    simp only [Arrow.arrow, Satisfies.satisfies, Model.value_not, Model.value_and,
+      Bool.not_and, Bool.not_not, w.satisfies_formula.mp hwα, Bool.not_true, Bool.false_or] at hwXαβ
+    simp only [Model.satisfies_formula, hwXαβ]
