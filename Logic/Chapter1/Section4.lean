@@ -1,4 +1,5 @@
 import Mathlib.Data.Set.Basic
+import «MathlibExt».Set
 import «Logic».Chapter1.Section3
 
 open Notation
@@ -33,6 +34,8 @@ inductive Gentzen : Set (Bₐ.Formula V) → (Bₐ.Formula V) → Prop
 
 namespace Gentzen
 
+theorem mem (h : α ∈ X) : X ⊢ α := mono init (Set.singleton_subset_iff.mpr h)
+
 theorem union_singleton_right : X ∪ {α} ⊢ α := mono init (Set.subset_union_right X {α})
 
 theorem union_singleton_left : {α} ∪ X ⊢ α := mono init (Set.subset_union_left {α} X)
@@ -66,6 +69,9 @@ theorem arrow_intro (h : X ∪ {α} ⊢ β) : X ⊢ α ⟶ β := by
   exact not₂ h5 h6
 
 theorem detachment (h₁ : X ⊢ α) (h₂ : X ⊢ α ⟶ β) : X ⊢ β := cut h₁ (arrow_elim h₂)
+
+theorem false_elim [Inhabited V] {X : Set (Bₐ.Formula V)} (h : X ⊢ ⊥) α : X ⊢ α :=
+  .not₁ (.and₂_left h) (.and₂_right h) α
 
 structure ClosedRel (P : (Set (Bₐ.Formula V)) → Bₐ.Formula V → Prop) where
   init : P {α} α
@@ -170,3 +176,72 @@ theorem finiteness {V : Type _} {X : Set (Bₐ.Formula V)} {α : Bₐ.Formula V}
 
 end Gentzen
 end Gentzen
+
+section Consistency
+
+/-- A set of formulas is inconsistent if all formulas are provable from it. -/
+def inconsistent (X : Set (Bₐ.Formula V)) := ∀ α, X ⊢ α
+
+def consistent (X : Set (Bₐ.Formula V)) := ¬ inconsistent X
+
+def maximally_consistent (X : Set (Bₐ.Formula V)) := consistent X ∧ ∀ X' ⊃ X, inconsistent X'
+
+/-- Inconsistency is equivalent to the derivability of `⊥`. -/
+theorem inconsistent_iff [Inhabited V] (X : Set (Bₐ.Formula V)) : inconsistent X ↔ X ⊢ ⊥ :=
+  ⟨fun h => h ⊥, fun h => .not₁ (.and₂_left h) (.and₂_right h)⟩
+
+/--
+  Maximal consistency is equivalent to `∀ α (exactly one of) α ∈ X ∨ ~α ∈ X`.
+
+  Only the reverse direction requires `Inhabited V`.
+-/
+theorem maximally_consistent_iff [Inhabited V] (X : Set (Bₐ.Formula V)) :
+    maximally_consistent X ↔ ∀ α, (α ∈ X ∧ ~α ∉ X) ∨ (α ∉ X ∧ ~α ∈ X) := by
+  refine' ⟨fun h α => _, fun h => _⟩
+  · by_contra hα
+    simp only [not_or, not_and_or, not_not] at hα
+    have ⟨h₁, h₂⟩ := hα
+    refine' Or.elim h₁ (fun hα => _) (fun hnα => _)
+    · have hnα : ~α ∉ X := Or.elim h₂ (absurd · hα) id
+      have h₁s : X ∪ {α} ⊃ X :=
+        (Set.ssubset_iff_of_subset (Set.subset_union_left _ _)).mpr
+          ⟨α, Set.mem_union_right _ (Set.mem_singleton α), hα⟩
+      have h₂s : X ∪ {~α} ⊃ X :=
+        (Set.ssubset_iff_of_subset (Set.subset_union_left _ _)).mpr
+          ⟨~α, Set.mem_union_right _ (Set.mem_singleton (~α)), hnα⟩
+      exact h.left fun β => .not₂ (h.right _ h₁s β) (h.right _ h₂s β)
+    · have hα : X ⊢ α := .mem (Or.elim h₂ id (absurd hnα ·))
+      have hnα : X ⊢ ~α := .mem hnα
+      exact h.left (.not₁ hα hnα)
+
+  · refine' ⟨_, _⟩
+    · by_contra hc
+      simp only [consistent, not_not, inconsistent_iff] at hc
+      have h₁ := Gentzen.and₂_left hc
+      have h₂ := Gentzen.and₂_right hc
+      sorry
+
+    · intro X' hX'
+      have ⟨φ, hφ', hφ⟩ := Set.ssubset_exists_mem_not_mem hX'
+      have hnφ : ~φ ∈ X' := by
+        apply Set.mem_of_subset_of_mem hX'.left
+        exact Or.elim (h φ) (fun ⟨hφ', _⟩ => absurd hφ' hφ) (fun ⟨_, hnφ⟩ => hnφ)
+      exact .not₁ (.mem hφ') (.mem hnφ)
+
+/-- Lemma 4.2: C⁺ -/
+theorem derivable_iff [Inhabited V] {X : Set (Bₐ.Formula V)} {α : Bₐ.Formula V} :
+    X ⊢ α ↔ X ∪ {~α} ⊢ ⊥ := ⟨
+  fun h => .not₁ (.mono h (Set.subset_union_left _ _)) .union_singleton_right ⊥,
+  fun h => .not₂ .union_singleton_right (.false_elim h α)⟩
+
+/-- Lemma 4.2: C⁻ -/
+theorem derivable_not_iff [Inhabited V] {X : Set (Bₐ.Formula V)} {α : Bₐ.Formula V} :
+    X ⊢ ~α ↔ X ∪ {α} ⊢ ⊥ := ⟨
+  fun h => .not₁ .union_singleton_right (.mono h (Set.subset_union_left _ _)) ⊥,
+  fun h => .not₂ (.false_elim h (~α)) .union_singleton_right⟩
+
+/-- Lemma 4.3: Lindenbaum's theorem. -/
+lemma consistent_maximal_extension (h : consistent X) : ∃ X' ⊇ X, maximally_consistent X' := by
+  sorry
+
+end Consistency
