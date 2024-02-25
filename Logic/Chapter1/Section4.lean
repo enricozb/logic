@@ -1,4 +1,7 @@
 import Mathlib.Data.Set.Basic
+import Mathlib.Order.RelClasses
+import Mathlib.Order.Zorn
+import «MathlibExt».Chain
 import «MathlibExt».Set
 import «Logic».Chapter1.Section3
 
@@ -187,7 +190,7 @@ def consistent (X : Set (Bₐ.Formula V)) := ¬ inconsistent X
 def maximally_consistent (X : Set (Bₐ.Formula V)) := consistent X ∧ ∀ X' ⊃ X, inconsistent X'
 
 /-- Inconsistency is equivalent to the derivability of `⊥`. -/
-theorem inconsistent_iff [Inhabited V] (X : Set (Bₐ.Formula V)) : inconsistent X ↔ X ⊢ ⊥ :=
+theorem inconsistent_iff [Inhabited V] {X : Set (Bₐ.Formula V)} : inconsistent X ↔ X ⊢ ⊥ :=
   ⟨fun h => h ⊥, fun h => .not₁ (.and₂_left h) (.and₂_right h)⟩
 
 /--
@@ -241,7 +244,37 @@ theorem derivable_not_iff [Inhabited V] {X : Set (Bₐ.Formula V)} {α : Bₐ.Fo
   fun h => .not₂ (.false_elim h (~α)) .union_singleton_right⟩
 
 /-- Lemma 4.3: Lindenbaum's theorem. -/
-lemma consistent_maximal_extension (h : consistent X) : ∃ X' ⊇ X, maximally_consistent X' := by
-  sorry
+theorem consistent_maximal_extension [Inhabited V] {X : Set (Bₐ.Formula V)} (h : consistent X) :
+    ∃ X' ⊇ X, maximally_consistent X' := by
+  let H := {X' | X ⊆ X' ∧ consistent X'}
+  have ⟨X₀, ⟨hXsubX₀, hX₀con⟩, hX₀max⟩ : ∃ X₀ ∈ H, ∀ Y ∈ H, X₀ ⊆ Y → Y = X₀ := by
+    refine' zorn_subset H (fun K hKsub hKchain => _)
+    wlog hKnonempty : ∃ Y, Y ∈ K
+    · exact ⟨X, ⟨Eq.subset rfl, h⟩, fun Y hY => (not_exists.mp hKnonempty Y hY).elim⟩
+    let U := ⋃₀ K
+    suffices hU : U ∈ H
+    · exact ⟨U, hU, fun Y hY => Set.subset_sUnion_of_mem hY⟩
+    have hXsubU : X ⊆ U := by
+      intro α hα
+      simp only [Set.mem_sUnion]
+      have ⟨Y, hY⟩ := hKnonempty
+      exact ⟨Y, hY, (hKsub hY).left hα⟩
+    have hUcon : consistent U := by
+      by_contra hU
+      simp only [consistent, not_exists, not_not] at hU
+      have ⟨U₀, hU₀subU, hU₀fin, hU₀bot⟩ := Gentzen.finiteness (hU ⊥)
+      have map : ∀ αᵢ ∈ U₀, ∃ Yᵢ ∈ K, αᵢ ∈ Yᵢ := fun αᵢ hαᵢ => hU₀subU hαᵢ
+      have ⟨Y, hYmem, hYsub⟩ : ∃ Y ∈ K, U₀ ⊆ Y := Chain.fin_subset_max hKnonempty hKchain hU₀fin map
+      have hYcon : consistent Y := (hKsub hYmem).right
+      have hYinc : inconsistent Y := inconsistent_iff.mpr (Gentzen.mono hU₀bot hYsub)
+      contradiction
+    exact ⟨hXsubU, hUcon⟩
+  have hX₀ : maximally_consistent X₀ := by
+    refine' ⟨hX₀con, _⟩
+    by_contra hX₁
+    simp only [not_forall] at hX₁
+    have ⟨X₁, ⟨hX₁sup, hX₁ne⟩, hX₁con⟩ := hX₁
+    simp only [hX₀max X₁ ⟨hXsubX₀.trans hX₁sup, hX₁con⟩ hX₁sup, subset_rfl, not_true] at hX₁ne
+  exact ⟨X₀, hXsubX₀, hX₀⟩
 
 end Consistency
