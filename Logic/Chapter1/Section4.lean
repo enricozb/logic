@@ -37,6 +37,11 @@ inductive Gentzen : Set (Bₐ.Formula V) → (Bₐ.Formula V) → Prop
 
 namespace Gentzen
 
+variable [Inhabited V] {X : Set (Bₐ.Formula V)} {α : Bₐ.Formula V}
+
+theorem and₂_iff : X ⊢ α ⋏ β ↔ X ⊢ α ∧ X ⊢ β :=
+  ⟨fun h => ⟨.and₂_left h, .and₂_right h⟩, fun ⟨h₁, h₂⟩ => .and₁ h₁ h₂⟩
+
 theorem mem (h : α ∈ X) : X ⊢ α := mono init (Set.singleton_subset_iff.mpr h)
 
 theorem union_singleton_right : X ∪ {α} ⊢ α := mono init (Set.subset_union_right X {α})
@@ -73,17 +78,16 @@ theorem arrow_intro (h : X ∪ {α} ⊢ β) : X ⊢ α ⟶ β := by
 
 theorem detachment (h₁ : X ⊢ α) (h₂ : X ⊢ α ⟶ β) : X ⊢ β := cut h₁ (arrow_elim h₂)
 
-theorem false_elim [Inhabited V] {X : Set (Bₐ.Formula V)} (h : X ⊢ ⊥) α : X ⊢ α :=
-  .not₁ (.and₂_left h) (.and₂_right h) α
+theorem false_elim (h : X ⊢ ⊥) α : X ⊢ α := .not₁ (.and₂_left h) (.and₂_right h) α
 
 structure ClosedRel (P : (Set (Bₐ.Formula V)) → Bₐ.Formula V → Prop) where
-  init : P {α} α
-  mono : P X α → X ⊆ X' → P X' α
-  and₁ : P X α → P X β → P X (α ⋏ β)
-  and₂_left : P X (α ⋏ β) → P X α
-  and₂_right : P X (α ⋏ β) → P X β
-  not₁ β : P X α → P X (~α) → P X β
-  not₂ : P (X ∪ {α}) β → P (X ∪ {~α}) β → P X β
+  init {α} : P {α} α
+  mono {X α} : P X α → X ⊆ X' → P X' α
+  and₁ {X α} : P X α → P X β → P X (α ⋏ β)
+  and₂_left {X α β} : P X (α ⋏ β) → P X α
+  and₂_right {X α β} : P X (α ⋏ β) → P X β
+  not₁ {X α} β : P X α → P X (~α) → P X β
+  not₂ {X α β} : P (X ∪ {α}) β → P (X ∪ {~α}) β → P X β
 
 /--
   Principle of rule induction for Gentzen Sequents.
@@ -99,25 +103,26 @@ theorem induction (r : ClosedRel P) (h : X ⊢ α) : P X α := by
   case not₂ hXα hXnα => exact r.not₂ hXα hXnα
 
 /-- The soundness of `⊢`. Alternatively, `⊢ ⊆ ⊨`. -/
-theorem soundness [Inhabited V] (X : Set (Bₐ.Formula V)): X ⊢ α → X ⊨ α := by
-  apply induction
+theorem soundness (h : X ⊢ α) : X ⊨ α := by
+  refine' induction _ h
   constructor
-  case r.init => simp only [Satisfies.satisfies, Set.mem_singleton_iff, forall_eq, imp_self,
-    implies_true, forall_const]
-  case r.mono =>
+  case init =>
+    simp only [Satisfies.satisfies, Set.mem_singleton_iff, forall_eq, imp_self,
+      implies_true, forall_const]
+  case mono =>
     intro X α X' hXα hXX' w hwX'
     exact hXα w (fun x hx => hwX' x (hXX' hx))
-  case r.and₁ =>
+  case and₁ =>
     intro X α β hα hβ w hw
     simp only [Model.satisfies_and, hα w hw, hβ w hw, and_self]
-  case r.and₂_left => exact fun hXαβ w hw => (w.satisfies_and.mp (hXαβ w hw)).left
-  case r.and₂_right => exact fun hXαβ w hw => (w.satisfies_and.mp (hXαβ w hw)).right
-  case r.not₁ =>
+  case and₂_left => exact fun hXαβ w hw => (w.satisfies_and.mp (hXαβ w hw)).left
+  case and₂_right => exact fun hXαβ w hw => (w.satisfies_and.mp (hXαβ w hw)).right
+  case not₁ =>
     intro X α β hXα hXnα w hw
     simp only [Satisfies.satisfies, Model.value_not, Bool.not_eq_true'] at hXα hXnα
     have := hXα w hw ▸ hXnα w hw
     contradiction
-  case r.not₂ =>
+  case not₂ =>
     intro X α β hXα hXnα w hw
     simp only [Satisfies.satisfies] at hXα hXnα
     by_cases hα : w.value α = true
@@ -138,8 +143,7 @@ theorem soundness [Inhabited V] (X : Set (Bₐ.Formula V)): X ⊢ α → X ⊨ �
   This is proved by showing that the property `P(X, α) = ∃ X₀ ⊆ X, X₀.Finite ∧ X₀ ⊢ α` is closed
   under Gentzen rules.
 -/
-theorem finiteness {V : Type _} {X : Set (Bₐ.Formula V)} {α : Bₐ.Formula V} (h : X ⊢ α) :
-    ∃ X₀ ⊆ X, X₀.Finite ∧ X₀ ⊢ α := by
+theorem finiteness (h : X ⊢ α) : ∃ X₀ ⊆ X, X₀.Finite ∧ X₀ ⊢ α := by
 
   suffices : ClosedRel (fun X (α : Bₐ.Formula V) => ∃ X₀ ⊆ X, X₀.Finite ∧ X₀ ⊢ α)
   · exact induction this h
@@ -189,8 +193,10 @@ def consistent (X : Set (Bₐ.Formula V)) := ¬ inconsistent X
 
 def maximally_consistent (X : Set (Bₐ.Formula V)) := consistent X ∧ ∀ X' ⊃ X, inconsistent X'
 
+variable [Inhabited V] {X : Set (Bₐ.Formula V)} {α : Bₐ.Formula V}
+
 /-- Inconsistency is equivalent to the derivability of `⊥`. -/
-theorem inconsistent_iff [Inhabited V] {X : Set (Bₐ.Formula V)} : inconsistent X ↔ X ⊢ ⊥ :=
+theorem inconsistent_iff : inconsistent X ↔ X ⊢ ⊥ :=
   ⟨fun h => h ⊥, fun h => .not₁ (.and₂_left h) (.and₂_right h)⟩
 
 /--
@@ -198,7 +204,7 @@ theorem inconsistent_iff [Inhabited V] {X : Set (Bₐ.Formula V)} : inconsistent
 
   Only the reverse direction requires `Inhabited V`.
 -/
-theorem maximally_consistent_iff [Inhabited V] (X : Set (Bₐ.Formula V)) :
+theorem maximally_consistent_iff :
     maximally_consistent X ↔ ∀ α, (α ∈ X ∧ ~α ∉ X) ∨ (α ∉ X ∧ ~α ∈ X) := by
   refine' ⟨fun h α => _, fun h => _⟩
   · by_contra hα
@@ -232,20 +238,17 @@ theorem maximally_consistent_iff [Inhabited V] (X : Set (Bₐ.Formula V)) :
       exact .not₁ (.mem hφ') (.mem hnφ)
 
 /-- Lemma 4.2: C⁺ -/
-theorem derivable_iff [Inhabited V] {X : Set (Bₐ.Formula V)} {α : Bₐ.Formula V} :
-    X ⊢ α ↔ X ∪ {~α} ⊢ ⊥ := ⟨
+theorem derivable_iff : X ⊢ α ↔ X ∪ {~α} ⊢ ⊥ := ⟨
   fun h => .not₁ (.mono h (Set.subset_union_left _ _)) .union_singleton_right ⊥,
   fun h => .not₂ .union_singleton_right (.false_elim h α)⟩
 
 /-- Lemma 4.2: C⁻ -/
-theorem derivable_not_iff [Inhabited V] {X : Set (Bₐ.Formula V)} {α : Bₐ.Formula V} :
-    X ⊢ ~α ↔ X ∪ {α} ⊢ ⊥ := ⟨
+theorem derivable_not_iff : X ⊢ ~α ↔ X ∪ {α} ⊢ ⊥ := ⟨
   fun h => .not₁ .union_singleton_right (.mono h (Set.subset_union_left _ _)) ⊥,
   fun h => .not₂ (.false_elim h (~α)) .union_singleton_right⟩
 
 /-- Lemma 4.3: Lindenbaum's theorem. -/
-theorem consistent_maximal_extension [Inhabited V] {X : Set (Bₐ.Formula V)} (h : consistent X) :
-    ∃ X' ⊇ X, maximally_consistent X' := by
+theorem consistent_maximal_extension (h : consistent X) : ∃ X' ⊇ X, maximally_consistent X' := by
   let H := {X' | X ⊆ X' ∧ consistent X'}
   have ⟨X₀, ⟨hXsubX₀, hX₀con⟩, hX₀max⟩ : ∃ X₀ ∈ H, ∀ Y ∈ H, X₀ ⊆ Y → Y = X₀ := by
     refine' zorn_subset H (fun K hKsub hKchain => _)
@@ -276,5 +279,65 @@ theorem consistent_maximal_extension [Inhabited V] {X : Set (Bₐ.Formula V)} (h
     have ⟨X₁, ⟨hX₁sup, hX₁ne⟩, hX₁con⟩ := hX₁
     simp only [hX₀max X₁ ⟨hXsubX₀.trans hX₁sup, hX₁con⟩ hX₁sup, subset_rfl, not_true] at hX₁ne
   exact ⟨X₀, hXsubX₀, hX₀⟩
+
+theorem maximally_consistent_union_singleton (hXmcon : maximally_consistent X)
+    (hXαcon : consistent (X ∪ {α})) : α ∈ X := by
+  by_contra hα
+  have hXssubXα : X ⊂ X ∪ {α} := by
+    exact ⟨
+      Set.subset_union_left _ _,
+      Set.not_subset_iff_exists_mem_not_mem.mpr ⟨α, Set.mem_union_right _ (Set.mem_singleton α), hα⟩
+    ⟩
+  exact hXαcon (hXmcon.right _ hXssubXα)
+
+/-- Lemma 4.4: A maximally consistent set `X` has the property `X ⊢ ¬α ↔ X ⊬ α`, for any `α`. -/
+theorem maximally_consistent_derives_not_iff (hX : maximally_consistent X) : X ⊢ ~α ↔ X ⊬ α := by
+  refine' ⟨fun hXnα => by_contra fun hXα => _, fun hXα => _⟩
+  · simp only [not_not] at hXα
+    exact hX.left (Gentzen.not₁ hXα hXnα)
+  · simp only at hXα
+    have hXnαcon := inconsistent_iff.not.mpr (derivable_iff.not.mp hXα)
+    exact Gentzen.mem (maximally_consistent_union_singleton hX hXnαcon)
+
+/-- Lemma 4.5: A maximally consistent set `X` is satisfiable. -/
+theorem maximally_consistent_satisfiable (hX : maximally_consistent X) : ∃ w : Model V, w ⊨ X := by
+  have Gentzen.decidable (X : Set (Bₐ.Formula V)) v : Decidable (X ⊢ v) := Classical.dec (X ⊢ v)
+  let w : Model V := ⟨fun v => decide (X ⊢ .var v)⟩
+  have derives_imp_satisfies {α} : X ⊢ α ↔ w ⊨ α := by
+    induction α using Bₐ.induction
+    case var v =>
+      simp only [Model.satisfies_formula, Model.value, decide_eq_true_eq]
+    case not α hα_ih =>
+      simp only [maximally_consistent_derives_not_iff hX, hα_ih.not,
+        Model.satisfies_formula, Model.value_not, Bool.not_eq_true, Bool.not_eq_true']
+    case and α β hα_ih hβ_ih =>
+      rw [Gentzen.and₂_iff, hα_ih, hβ_ih, Model.satisfies_and]
+  exact ⟨w, fun α hα => derives_imp_satisfies.mp (Gentzen.mem hα)⟩
+
+/-- Theorem 4.6: Completeness theorem for propositional logic. -/
+theorem completeness : X ⊢ α ↔ X ⊨ α := by
+  refine' ⟨Gentzen.soundness, not_imp_not.mp fun hXα => _⟩
+  have hXnα_con : consistent (X ∪ {~α}) := not_forall.mpr ⟨⊥, derivable_iff.not.mp hXα⟩
+  have ⟨Y, hYsup, hYmcon⟩ := consistent_maximal_extension hXnα_con
+  have ⟨w, hw⟩ := maximally_consistent_satisfiable hYmcon
+  have hXnαw : w ⊨ X ∪ {~α} := fun β hβ => hw β (hYsup hβ)
+  have ⟨hwX, hwα⟩ := w.satisfies_union.mp hXnαw
+  simp only [Satisfies.satisfies, Bool.not_eq_true, not_forall, exists_prop]
+  exact ⟨w, hwX, w.satisfies_not'.mp hwα⟩
+
+/-- Theorem 4.7: Finiteness theorem for `⊨`. -/
+theorem Satisfies.finiteness (h : X ⊨ α) : ∃ X₀ ⊆ X, X₀.Finite ∧ X₀ ⊨ α :=
+  have ⟨X₀, hX₀s, hX₀f, hX₀⟩ := Gentzen.finiteness (completeness.mpr h)
+  ⟨X₀, hX₀s, hX₀f, completeness.mp hX₀⟩
+
+/-- Theorem 4.8: Propositional compactness theorem. -/
+theorem Satisfies.compactness (h : ∀ X₀ ⊆ X, X₀.Finite → satisfiable_set X₀) :
+    satisfiable_set X := by
+  by_contra hX
+  have hXbot : X ⊨ (⊥ : Bₐ.Formula V) := fun w hw => absurd hw (not_exists.mp hX w)
+  have ⟨X₀, hX₀s, hX₀f, hX₀bot⟩ := finiteness hXbot
+  have ⟨w, hw⟩ := h X₀ hX₀s hX₀f
+  have hwbot := hX₀bot w hw
+  simp only [satisfies, Model.value_bot] at hwbot
 
 end Consistency

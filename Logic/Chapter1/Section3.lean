@@ -12,83 +12,78 @@ class Satisfies (α : Sort _) (β : Sort _) where
 scoped[Notation] infix:50 " ⊨ " => Satisfies.satisfies
 scoped[Notation] infix:50 " ⊭ " => fun a b => ¬ a ⊨ b
 
-instance {S : Signature} [Interpretation S] : Satisfies (Model V) (S.Formula V) where
-  satisfies w α := w.value α
-
-instance {S : Signature} [Interpretation S] : Satisfies (Model V) (Set (S.Formula V)) where
-  satisfies w X := ∀ α ∈ X, w ⊨ α
-
-instance {S : Signature} [Interpretation S] : Satisfies (Set (S.Formula V)) (S.Formula V) where
-  satisfies X α := ∀ w : Model V, w ⊨ X → w ⊨ α
-
-instance {S : Signature} [Interpretation S] : Satisfies (Set (S.Formula V)) (Set (S.Formula V)) where
-  satisfies X Y := ∀ α ∈ Y, X ⊨ α
-
 variable {S : Signature} [Interpretation S] {V : Type _} [B : S.Boolean V]
 
-@[simp] theorem Model.satisfies_formula (w : Model V) {α : S.Formula V} :
-    w ⊨ α ↔ w.value α := by
-  rfl
+instance : Satisfies (Model V) (S.Formula V) where
+  satisfies w α := w.value α
 
-@[simp] theorem Model.satisfies_set (w : Model V) (X : Set (S.Formula V)) :
-    w ⊨ X ↔ ∀ α ∈ X, w ⊨ α := by
-  rfl
+instance : Satisfies (Model V) (Set (S.Formula V)) where
+  satisfies w X := ∀ α ∈ X, w ⊨ α
 
-@[simp] theorem Model.satisfies_union (w : Model V) {X : Set (S.Formula V)} {α : S.Formula V} :
-    w ⊨ X ∪ {α} ↔ w ⊨ X ∧ w ⊨ α := by
+instance : Satisfies (Set (S.Formula V)) (S.Formula V) where
+  satisfies X α := ∀ w : Model V, w ⊨ X → w ⊨ α
+
+instance : Satisfies (Set (S.Formula V)) (Set (S.Formula V)) where
+  satisfies X Y := ∀ α ∈ Y, X ⊨ α
+
+def satisfiable_set (X : Set (S.Formula V)) := ∃ w : Model V, w ⊨ X
+
+variable (w : Model V) {X Y : Set (S.Formula V)} {α β : S.Formula V}
+
+@[simp] theorem Model.satisfies_formula : w ⊨ α ↔ w.value α := by rfl
+
+@[simp] theorem Model.satisfies_set : w ⊨ X ↔ ∀ α ∈ X, w ⊨ α := by rfl
+
+@[simp] theorem Model.satisfies_union : w ⊨ X ∪ {α} ↔ w ⊨ X ∧ w ⊨ α := by
   simp only [Satisfies.satisfies, Set.union_singleton, Set.mem_insert_iff, forall_eq_or_imp,
     and_comm]
 
-@[simp] theorem Model.satisfies_not (w : Model V) {α : S.Formula V} :
-    w ⊨ ~α ↔ w ⊭ α := by
+@[simp] theorem Model.satisfies_not : w ⊨ ~α ↔ w ⊭ α := by
   simp only [satisfies_formula, value_not, Bool.not_eq_true, Bool.not_eq_true']
 
-@[simp] theorem Model.satisfies_and (w : Model V) {α β : S.Formula V} :
-    w ⊨ α ⋏ β ↔ w ⊨ α ∧ w ⊨ β := by
+@[simp] theorem Model.satisfies_not' : w ⊨ ~α ↔ w.value α = false := by
+  simp only [satisfies_formula, value_not, Bool.not_eq_true']
+
+@[simp] theorem Model.satisfies_and : w ⊨ α ⋏ β ↔ w ⊨ α ∧ w ⊨ β := by
   simp only [satisfies_formula, value_and, Bool.and_eq_true]
 
-@[simp] theorem Model.satisfies_or (w : Model V) {α β : S.Formula V} :
-    w ⊨ α ⋎ β ↔ w ⊨ α ∨ w ⊨ β := by
+@[simp] theorem Model.satisfies_or : w ⊨ α ⋎ β ↔ w ⊨ α ∨ w ⊨ β := by
   simp only [satisfies_formula, value_or, Bool.or_eq_true]
 
-@[simp] theorem Signature.Formula.satisfies_formula (X : Set (S.Formula V)) (α : S.Formula V) :
-    X ⊨ α ↔ ∀ w : Model V, w ⊨ X → w ⊨ α  := by
+@[simp] theorem Signature.Formula.satisfies_formula : X ⊨ α ↔ ∀ w : Model V, w ⊨ X → w ⊨ α := by
   rfl
 
-@[simp] theorem Signature.Formula.satisfies_set (X Y : Set (S.Formula V)) :
-    X ⊨ Y ↔ ∀ α ∈ Y, X ⊨ α := by
-  rfl
+@[simp] theorem Signature.Formula.satisfies_set : X ⊨ Y ↔ ∀ α ∈ Y, X ⊨ α := by rfl
 
 def Signature.Formula.tautology (α : S.Formula V) := ∀ w : Model V, w ⊨ α
 
 def Signature.Formula.contradiction (α : S.Formula V) := ∀ w : Model V, w ⊭ α
 
-example (p : S.Formula V) : (p ⋎ ~p).tautology := by
+example : (α ⋎ ~α).tautology := by
   intro w
-  by_cases hp : w.value p
-  · simp only [Model.satisfies_formula, Model.value_or, hp, Bool.true_or]
-  · simp only [Model.satisfies_formula, Model.value_or, Model.value_not, hp,
+  by_cases hα : w.value α
+  · simp only [Model.satisfies_formula, Model.value_or, hα, Bool.true_or]
+  · simp only [Model.satisfies_formula, Model.value_or, Model.value_not, hα,
     Bool.not_false, Bool.or_true]
 
-example (p : S.Formula V) : (p ⋏ ~p).contradiction := by
+example : (α ⋏ ~α).contradiction := by
   intro w
-  by_cases hp : w.value p
+  by_cases hα : w.value α
   all_goals
-  · simp only [Model.satisfies_formula, Model.value_and, Model.value_not, hp, Bool.not_true,
+  · simp only [Model.satisfies_formula, Model.value_and, Model.value_not, hα, Bool.not_true,
     Bool.and_false, Bool.false_and, not_false_eq_true]
 
-example (α β : S.Formula V) : ({α, β} : Set _) ⊨ α ⋏ β := by
+example : ({α, β} : Set _) ⊨ α ⋏ β := by
   simp only [Satisfies.satisfies, Model.value_and, Set.mem_insert_iff,
     Set.mem_singleton_iff, Bool.and_eq_true,
     imp_self, implies_true, forall_eq_or_imp, forall_eq]
 
-example (α β : S.Formula V) : ({α ⋏ β} : Set _) ⊨ ({α, β} : Set _) := by
+example : ({α ⋏ β} : Set _) ⊨ ({α, β} : Set _) := by
   simp only [Satisfies.satisfies, Model.value_and, Set.mem_insert_iff, Set.mem_singleton_iff,
     Bool.and_eq_true, forall_eq, and_imp, forall_eq_or_imp, imp_self, implies_true, and_true]
   exact fun _ ha _ => ha
 
-example [Inhabited V] (X : Set (S.Formula V)) (α : S.Formula V) (hX : X ⊨ (⊥ : S.Formula V)) :
-    X ⊨ α := by
+example [Inhabited V] (hX : X ⊨ (⊥ : S.Formula V)) : X ⊨ α := by
   simp only [Satisfies.satisfies]
   simp only [Satisfies.satisfies, Model.value_bot, imp_false, not_forall, Bool.not_eq_true,
     exists_prop] at hX
@@ -97,8 +92,7 @@ example [Inhabited V] (X : Set (S.Formula V)) (α : S.Formula V) (hX : X ⊨ (�
   rw [hw β hβmem] at hβval
   contradiction
 
-example (X : Set (S.Formula V)) (α β : S.Formula V) (h₁ : X ∪ {α} ⊨ β) (h₂ : X ∪ {~α} ⊨ β) :
-    X ⊨ β := by
+example (h₁ : X ∪ {α} ⊨ β) (h₂ : X ∪ {~α} ⊨ β) : X ⊨ β := by
   simp only [Satisfies.satisfies]
   intro w hw
   by_cases hα : w ⊨ α
