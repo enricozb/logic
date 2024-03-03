@@ -38,6 +38,10 @@ variable (w : Model V) {X Y : Set (S.Formula V)} {α β : S.Formula V}
   simp only [Satisfies.satisfies, Set.union_singleton, Set.mem_insert_iff, forall_eq_or_imp,
     and_comm]
 
+@[simp] theorem Model.satisfies_var :
+    w ⊨ (Signature.Formula.var v : S.Formula V) ↔ w.valuation v := by
+  simp only [satisfies_formula, value_var]
+
 @[simp] theorem Model.satisfies_not : w ⊨ ~α ↔ w ⊭ α := by
   simp only [satisfies_formula, value_not, Bool.not_eq_true, Bool.not_eq_true']
 
@@ -46,6 +50,9 @@ variable (w : Model V) {X Y : Set (S.Formula V)} {α β : S.Formula V}
 
 @[simp] theorem Model.satisfies_and : w ⊨ α ⋏ β ↔ w ⊨ α ∧ w ⊨ β := by
   simp only [satisfies_formula, value_and, Bool.and_eq_true]
+
+@[simp] theorem Model.satisfies_arrow : w ⊨ α ⟶ β ↔ (w ⊨ α → w ⊨ β) := by
+  simp only [imp_iff_or_not, Arrow.arrow, satisfies_not, satisfies_and, not_and, not_not]
 
 @[simp] theorem Model.satisfies_or : w ⊨ α ⋎ β ↔ w ⊨ α ∨ w ⊨ β := by
   simp only [satisfies_formula, value_or, Bool.or_eq_true]

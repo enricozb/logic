@@ -228,6 +228,7 @@ theorem maximally_consistent_iff :
       simp only [consistent, not_not, inconsistent_iff] at hc
       have h₁ := Gentzen.and₂_left hc
       have h₂ := Gentzen.and₂_right hc
+      -- TODO: this theorem likely requires `consistent X`.
       sorry
 
     · intro X' hX'

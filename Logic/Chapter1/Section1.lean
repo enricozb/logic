@@ -106,6 +106,9 @@ variable {V : Type _} [Inhabited V] (S : Signature) [Interpretation S] [S.Boolea
 @[simp] theorem Model.value_not (α : S.Formula V) : w.value (~α) = Bool.not (w.value α) := by
   simp only [Signature.Boolean.not]
 
+@[simp] theorem Model.value_var (v : V) : w.value (.var v : S.Formula V) = w.valuation v := by
+  simp only [Model.value]
+
 @[simp] theorem Model.value_bot : w.value (⊥ : S.Formula V) = false := by
   simp only [Bot.bot, value_and, value_not, Bool.and_not_self]
 
