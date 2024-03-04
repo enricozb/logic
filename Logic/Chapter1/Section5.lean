@@ -4,8 +4,8 @@ import «Logic».Chapter1.Section4
 
 open Notation
 
-/- Applications of the compactness theorem. -/
-section Compactness
+/- Every set M can be (totally) ordered. -/
+section TotallyOrdered
 
 variable {V : Type _} [DecidableEq V] {S : Signature} [Interpretation S]
 
@@ -44,34 +44,58 @@ def Formula.vars (α : S.Formula V) : Set V :=
 
 theorem Formula.vars_var : (.var v : S.Formula V).vars = {v} := rfl
 
-theorem Formula.vars_and [B : S.Boolean V] {α β : S.Formula V} :
-    (α ⋏ β).vars = α.vars ∪ β.vars := by sorry
+theorem Formula.vars_and {α β : Bₐ.Formula V} :
+    (α ⋏ β).vars = α.vars ∪ β.vars := by
+  simp only [Formula.vars, Set.ext_iff, Set.mem_iUnion, Set.mem_union, Fin.exists_fin_two,
+    Matrix.cons_val_zero, Matrix.cons_val_one, Matrix.head_cons, implies_true]
 
-theorem Formula.vars_or [B : S.Boolean V] {α β : S.Formula V} :
-    (α ⋎ β).vars = α.vars ∪ β.vars := by sorry
+theorem Formula.vars_or {α β : Bₐ.Formula V} :
+    (α ⋎ β).vars = α.vars ∪ β.vars := by
+  simp only [Formula.vars, Set.ext_iff, Set.mem_iUnion, Set.mem_union,
+    Fin.exists_fin_one, Fin.exists_fin_two,
+    Matrix.cons_val_zero, Matrix.cons_val_one, Matrix.head_cons, implies_true]
 
-theorem Formula.vars_arrow [B : S.Boolean V] {α β : S.Formula V} :
-    (α ⟶ β).vars = α.vars ∪ β.vars := by sorry
+theorem Formula.vars_arrow {α β : Bₐ.Formula V} :
+    (α ⟶ β).vars = α.vars ∪ β.vars := by
+  simp only [Formula.vars, Set.ext_iff, Set.mem_iUnion, Set.mem_union,
+    Fin.exists_fin_one, Fin.exists_fin_two,
+    Matrix.cons_val_zero, Matrix.cons_val_one, Matrix.head_cons, implies_true]
 
-/-- The set of all variables in a set of formulas. -/
+theorem Formula.vars_finite (α : S.Formula V) : α.vars.Finite := by
+  match α with
+  | .var v => simp only [vars, Set.finite_singleton]
+  | .app _ _ φs => exact Set.finite_iUnion (fun i => (φs i).vars_finite)
+
 def set_vars (X : Set (S.Formula V)) : Set V := ⋃₀ (Formula.vars '' X)
 
 theorem set_vars_finite {X : Set (S.Formula V)} (h : X.Finite) : (set_vars X).Finite := by
-  sorry
+  simp only [set_vars]
+  refine' Set.Finite.sUnion (Set.Finite.image _ h) _
+  simp only [Set.mem_image, forall_exists_index, and_imp, forall_apply_eq_imp_iff₂]
+  exact fun α _ => α.vars_finite
 
 theorem vars_subset_set_vars {X : Set (S.Formula V)} {α : S.Formula V} (h : α ∈ X) :
-    α.vars ⊆ set_vars X := by
-  sorry
+    α.vars ⊆ set_vars X :=
+  Set.subset_sUnion_of_mem (Set.mem_image_of_mem _ h)
 
 end Signature
 
-theorem total_preorder_finite (h : Finite M) : ∃ r, IsTotalPreorder M r := by
-  have ⟨n, hn⟩ := h.exists_equiv_fin
-  induction n
-  sorry
-  sorry
+theorem total_preorder_fin (n : ℕ) : ∃ r, IsTotalPreorder (Fin n) r := ⟨(· ≤ ·), by infer_instance⟩
 
-theorem total_preorder (M : Type _) : ∃ r, IsTotalPreorder M r := by
+theorem total_preorder_finite (h : Finite M) : ∃ r, IsTotalPreorder M r := by
+  have ⟨n, ⟨f, _, _, _⟩⟩ := h.exists_equiv_fin
+  have ⟨r, hr⟩ := total_preorder_fin n
+  let r' m₁ m₂ := r (f m₁) (f m₂)
+  have htrans : IsTrans M r' := ⟨fun a b c => hr.1.1 (f a) (f b) (f c)⟩
+  have htotal : IsTotal M r' := ⟨fun a b => hr.2.1 (f a) (f b)⟩
+  exact ⟨r', ⟨⟩⟩
+
+/--
+  Every set M can be (totally) ordered.
+
+  This is an application of the propositional compactness theorem.
+-/
+theorem total_preorder (M : Sort _) : ∃ r, IsTotalPreorder M r := by
   wlog hM : ∃ _ : M, True
   · have hM : Finite M := by
       by_contra h
@@ -172,4 +196,4 @@ theorem total_preorder (M : Type _) : ∃ r, IsTotalPreorder M r := by
       dif_pos (And.intro ha hb), dif_pos (And.intro hb ha), decide_eq_true_eq]
     exact hr₁.2.1 ⟨a, ha⟩ ⟨b, hb⟩
 
-end Compactness
+end TotallyOrdered
