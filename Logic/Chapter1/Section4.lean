@@ -202,11 +202,11 @@ theorem inconsistent_iff : inconsistent X ↔ X ⊢ ⊥ :=
 /--
   Maximal consistency is equivalent to `∀ α (exactly one of) α ∈ X ∨ ~α ∈ X`.
 
-  Only the reverse direction requires `Inhabited V`.
+  Note: only the reverse direction requires `Inhabited V`.
 -/
-theorem maximally_consistent_iff :
+theorem maximally_consistent_iff (h : consistent X) :
     maximally_consistent X ↔ ∀ α, (α ∈ X ∧ ~α ∉ X) ∨ (α ∉ X ∧ ~α ∈ X) := by
-  refine' ⟨fun h α => _, fun h => _⟩
+  refine' ⟨fun h α => _, fun hmc => ⟨h, _⟩⟩
   · by_contra hα
     simp only [not_or, not_and_or, not_not] at hα
     have ⟨h₁, h₂⟩ := hα
@@ -222,21 +222,12 @@ theorem maximally_consistent_iff :
     · have hα : X ⊢ α := .mem (Or.elim h₂ id (absurd hnα ·))
       have hnα : X ⊢ ~α := .mem hnα
       exact h.left (.not₁ hα hnα)
-
-  · refine' ⟨_, _⟩
-    · by_contra hc
-      simp only [consistent, not_not, inconsistent_iff] at hc
-      have h₁ := Gentzen.and₂_left hc
-      have h₂ := Gentzen.and₂_right hc
-      -- TODO: this theorem likely requires `consistent X`.
-      sorry
-
-    · intro X' hX'
-      have ⟨φ, hφ', hφ⟩ := Set.ssubset_exists_mem_not_mem hX'
-      have hnφ : ~φ ∈ X' := by
-        apply Set.mem_of_subset_of_mem hX'.left
-        exact Or.elim (h φ) (fun ⟨hφ', _⟩ => absurd hφ' hφ) (fun ⟨_, hnφ⟩ => hnφ)
-      exact .not₁ (.mem hφ') (.mem hnφ)
+  · intro X' hX'
+    have ⟨φ, hφ', hφ⟩ := Set.ssubset_exists_mem_not_mem hX'
+    have hnφ : ~φ ∈ X' := by
+      apply Set.mem_of_subset_of_mem hX'.left
+      exact Or.elim (hmc φ) (fun ⟨hφ', _⟩ => absurd hφ' hφ) (fun ⟨_, hnφ⟩ => hnφ)
+    exact .not₁ (.mem hφ') (.mem hnφ)
 
 /-- Lemma 4.2: C⁺ -/
 theorem derivable_iff : X ⊢ α ↔ X ∪ {~α} ⊢ ⊥ := ⟨
