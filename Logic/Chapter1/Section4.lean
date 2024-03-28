@@ -307,7 +307,7 @@ theorem maximally_consistent_satisfiable (hX : maximally_consistent X) : ∃ w :
   exact ⟨w, fun α hα => derives_imp_satisfies.mp (Gentzen.mem hα)⟩
 
 /-- Theorem 4.6: Completeness theorem for propositional logic. -/
-theorem completeness : X ⊢ α ↔ X ⊨ α := by
+theorem Gentzen.completeness : X ⊢ α ↔ X ⊨ α := by
   refine' ⟨Gentzen.soundness, not_imp_not.mp fun hXα => _⟩
   have hXnα_con : consistent (X ∪ {~α}) := not_forall.mpr ⟨⊥, derivable_iff.not.mp hXα⟩
   have ⟨Y, hYsup, hYmcon⟩ := consistent_maximal_extension hXnα_con
@@ -319,8 +319,8 @@ theorem completeness : X ⊢ α ↔ X ⊨ α := by
 
 /-- Theorem 4.7: Finiteness theorem for `⊨`. -/
 theorem Satisfies.finiteness (h : X ⊨ α) : ∃ X₀ ⊆ X, X₀.Finite ∧ X₀ ⊨ α :=
-  have ⟨X₀, hX₀s, hX₀f, hX₀⟩ := Gentzen.finiteness (completeness.mpr h)
-  ⟨X₀, hX₀s, hX₀f, completeness.mp hX₀⟩
+  have ⟨X₀, hX₀s, hX₀f, hX₀⟩ := Gentzen.finiteness (Gentzen.completeness.mpr h)
+  ⟨X₀, hX₀s, hX₀f, Gentzen.completeness.mp hX₀⟩
 
 /-- Theorem 4.8: Propositional compactness theorem. -/
 theorem Satisfies.compactness (h : ∀ X₀ ⊆ X, X₀.Finite → satisfiable_set X₀) :
