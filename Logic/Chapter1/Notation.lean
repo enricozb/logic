@@ -45,7 +45,7 @@ instance [Wedge α] [Tilde α] : Arrow α := ⟨fun α β => ~(α ⋏ ~β)⟩
 
 instance : Tilde Bool where tilde b := Bool.not b
 instance : Tilde (𝔹 n) where tilde f := Bool.not ∘ f
-instance : Tilde ([Bool; n]) where tilde f := Bool.not ∘ f
+instance : Tilde [Bool; n] where tilde f := Bool.not ∘ f
 instance : Wedge Bool where wedge := Bool.and
 instance : Vee Bool where vee := Bool.or
 
