@@ -48,7 +48,11 @@ example {p q : Bₐ.Formula V} : Proof {p, q} (p ⋏ q) 4 := by
 
 def size (_ : Proof X α n) : ℕ := n + 1
 
-/-- Any prefix of a proof `φs` is also a proof. -/
+/--
+  Any prefix of a proof `φs` is also a proof.
+
+  TODO: this seems way more complex than it needs to be...
+-/
 def init (p : Proof X α n) (h : n' < n) : Proof X (p.φs n') n' := by
   refine' ⟨Fin.init' p.φs (add_lt_add_right h 1), fun k => _, _⟩
   · refine' Or.elim (p.valid k) (fun hk => Or.inl _) (fun ⟨i, hi, j, hj, hij⟩ => Or.inr _)
