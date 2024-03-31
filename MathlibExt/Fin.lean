@@ -18,9 +18,13 @@ theorem Tuple.literal_2 {α : Type _} (v : Fin 2 → α) : ![v 0, v 1] = v := by
   | ⟨0, _⟩ => rfl
   | ⟨1, _⟩ => rfl
 
-def init' (q : (i : Fin n) → α) (h : k < n) (i : Fin k) : α := q ⟨i.val, i.prop.trans h⟩
+-- a prefix of a sequence of length n of length k < n
+def init' (q : Fin n → α) (h : n' < n) (i : Fin n') : α := q ⟨i.val, i.prop.trans h⟩
 
-def init'_lt (q : (i : Fin n) → α) (hk : k < n) (hi : Fin k) :
-    Fin.init' q hk hi = q ⟨hi.val, hi.prop.trans hk⟩ := rfl
+theorem init'_castLT (q : Fin n → α) (h : n' < n) (i : Fin n) (hi : i.val < n') :
+    init' q h (i.castLT hi) = q i := rfl
+
+theorem init'_coe (q : Fin n → α) (h : n' < n) (i : Fin n') :
+    init' q h i = q ⟨i.val, i.prop.trans h⟩ := rfl
 
 end Fin

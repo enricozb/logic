@@ -49,43 +49,39 @@ example {p q : Bₐ.Formula V} : Proof {p, q} (p ⋏ q) 4 := by
 def size (_ : Proof X α n) : ℕ := n + 1
 
 /-- Any prefix of a proof `φs` is also a proof. -/
-def init (p : Proof X α n) (h : k < n) : Proof X (p.φs k) k := by
-  refine' ⟨Fin.init' p.φs (add_lt_add_right h 1), fun k' => _, _⟩
-  · refine' Or.elim (p.valid k') (fun hk' => Or.inl _) (fun ⟨i, hi, j, hj, hk'⟩ => Or.inr _)
-    · rw [Fin.init'_lt]
-      sorry
-    · sorry
+def init (p : Proof X α n) (h : n' < n) : Proof X (p.φs n') n' := by
+  refine' ⟨Fin.init' p.φs (add_lt_add_right h 1), fun k => _, _⟩
+  · refine' Or.elim (p.valid k) (fun hk => Or.inl _) (fun ⟨i, hi, j, hj, hij⟩ => Or.inr _)
+    · have : (↑↑k : Fin (n + 1)) = ⟨↑k, k.prop.trans (add_lt_add_right h 1)⟩ := by
+        simp only [Fin.eq_mk_iff_val_eq, Fin.val_nat_cast, Nat.mod_succ_eq_iff_lt]
+        exact k.prop.trans (add_lt_add_right h 1)
+      simp only [Fin.init', ← this, hk]
+    · have hi₁ : i.val < n' + 1 := by
+        apply (Fin.lt_iff_val_lt_val.mp hi).trans
+        simp only [Fin.val_nat_cast, Nat.mod_eq_of_lt (k.prop.trans (add_lt_add_right h 1)), k.prop]
+      have hi₂ : i.castLT hi₁ < k := by
+        simp only [Fin.lt_iff_val_lt_val]
+        have hi' := Fin.lt_iff_val_lt_val.mp hi
+        simp only [Fin.val_nat_cast, Nat.mod_eq_of_lt (k.prop.trans (add_lt_add_right h 1))] at hi'
+        exact hi'
+      have hj₁ : j.val < n' + 1 := by
+        apply (Fin.lt_iff_val_lt_val.mp hj).trans
+        simp only [Fin.val_nat_cast, Nat.mod_eq_of_lt (k.prop.trans (add_lt_add_right h 1)), k.prop]
+      have hj₂ : j.castLT hj₁ < k := by
+        simp only [Fin.lt_iff_val_lt_val]
+        have hj' := Fin.lt_iff_val_lt_val.mp hj
+        simp only [Fin.val_nat_cast, Nat.mod_eq_of_lt (k.prop.trans (add_lt_add_right h 1))] at hj'
+        exact hj'
+      have hk : (↑k.val : Fin (n + 1)) = ⟨↑k, k.prop.trans (add_lt_add_right h 1)⟩ := by
+        simp only [Fin.eq_mk_iff_val_eq, Fin.val_nat_cast, Nat.mod_succ_eq_iff_lt]
+        exact k.prop.trans (add_lt_add_right h 1)
+      refine' ⟨i.castLT hi₁, hi₂, j.castLT hj₁, hj₂, _⟩
+      simp_rw [Fin.init'_castLT, Fin.init'_coe]
+      simp only [hk] at hij
+      exact hij
   · simp only [Fin.init', Fin.val_last]
     rw [← (Fin.eq_mk_iff_val_eq (hk := h.trans (lt_add_one n))).mpr]
     exact Fin.val_cast_of_lt (Nat.le.step h)
-
--- def Proof.init (p : Proof X α n) (h : k < n) : Proof X (p.φs k) k := by
---   refine' ⟨Fin.init' p.φs (add_lt_add_right h 1), _, _⟩
---   · intro k'
---     refine' Or.elim (p.valid k') (fun hk' => Or.inl _) (fun ⟨i, hi, j, hj, hk'⟩ => Or.inr _)
---     · have : (↑↑k' : Fin (n + 1)) = ⟨↑k', k'.prop.trans (add_lt_add_right h 1)⟩ := by
---         simp only [Fin.eq_mk_iff_val_eq, Fin.val_nat_cast, Nat.mod_succ_eq_iff_lt]
---         exact k'.prop.trans (add_lt_add_right h 1)
---       simp only [Fin.init', ← this, hk']
---     · have hk'coe : ↑(↑(↑k' : ℕ) : Fin (n + 1)) = (↑k' : ℕ) := by
---         simp only [Fin.val_nat_cast, Nat.mod_succ_eq_iff_lt]
---         exact k'.prop.trans (add_lt_add_right h 1)
---       refine' ⟨i, _, j, _, _⟩
---       · have hik : ↑i < k + 1 := sorry
---         apply Fin.mk_lt_mk.mpr
---         rw [Nat.mod_eq_of_lt hik, ← hk'coe]
---         exact Fin.lt_iff_val_lt_val.mp hi
---       · have hjk : ↑j < k + 1 := sorry
---         apply Fin.mk_lt_mk.mpr
---         rw [Nat.mod_eq_of_lt hjk, ← hk'coe]
---         exact Fin.lt_iff_val_lt_val.mp hj
---       · have hicoe : ↑(↑(↑i : ℕ) : Fin (k + 1)) = (↑i : ℕ) := sorry
---         have hjcoe : ↑(↑(↑j : ℕ) : Fin (k + 1)) = (↑j : ℕ) := sorry
---         simp only [Fin.init'_lt]
---         simp_rw [hicoe, hjcoe]
---   · simp only [Fin.init', Fin.val_last]
---     rw [← (Fin.eq_mk_iff_val_eq (hk := h.trans (lt_add_one n))).mpr]
---     exact Fin.val_cast_of_lt (Nat.le.step h)
 
 end Proof
 end Proof
