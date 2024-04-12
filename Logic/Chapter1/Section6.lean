@@ -1,4 +1,5 @@
 import Mathlib.Data.Set.Finite
+import Mathlib.Tactic.Ring.RingNF
 import «MathlibExt».Fin
 import «Logic».Chapter1.Section3
 import «Logic».Chapter1.Section4
@@ -87,6 +88,31 @@ def init (p : Proof X α n) (h : n' < n) : Proof X (p.φs n') n' := by
     rw [← (Fin.eq_mk_iff_val_eq (hk := h.trans (lt_add_one n))).mpr]
     exact Fin.val_cast_of_lt (Nat.le.step h)
 
+/-- Appends the proof `q` to the end of proof `p`. -/
+def append (p : Proof X α n) (q : Proof Y β m) : Proof (X ∪ Y) β (n + 1 + m) := by
+  refine' ⟨Fin.append (m := n + 1) (n := m + 1) p.φs q.φs, fun k => _, _⟩
+  · sorry
+  · simp only [Fin.append_last]
+    exact q.conclusion
+
+theorem append_last_left (p : Proof X α n) (q : Proof Y β m) : (p.append q).φs n = α := by
+  simp only [Proof.append, Fin.append, Fin.addCases]
+  have : n < Nat.succ (n + 1 + m) := by
+    simp_rw [Nat.succ_eq_add_one, add_assoc, lt_add_iff_pos_right,
+      Nat.add_pos_left Nat.le.refl (m + 1)]
+  have hn : ↑(Nat.cast (R := Fin (n + 1 + m + 1)) n) = n := by
+    simp only [Fin.val_nat_cast, Nat.mod_succ_eq_iff_lt, this]
+  have hn' : ↑(Nat.cast (R := Fin (n + 1 + m + 1)) n) < n + 1 := by simp only [hn, lt_add_one]
+  have hn'' : ⟨↑(Nat.cast (R := Fin (n + 1 + m + 1)) n), hn'⟩ = Fin.last n := by
+    simp only [Fin.val_nat_cast, Fin.ext_iff, Fin.val_last, Nat.mod_succ_eq_iff_lt, this]
+  simp only [dif_pos hn', Fin.castLT, hn'', p.conclusion]
+
+/-- Appends the formula `β` to the end of proof `p`, where `β` is an assumption or axiom. -/
+def cons₁ (p : Proof X α n) (h : β ∈ X ∪ Λ) : (Proof X β (n + 1)) := sorry
+
+/-- Appends the formula `β` to the end of proof `p`, where `β` can be derived from `p`. -/
+def cons₂ (p : Proof X α n) (h : ∃ i ≤ n, ∃ j ≤ n, p.φs j = p.φs i ⟶ β) : (Proof X β (n + 1)) := sorry
+
 end Proof
 end Proof
 
@@ -106,7 +132,7 @@ namespace Hilbert
 
 section Lemmas
 
-variables {X X' : Set (Bₐ.Formula V)} {α β : Bₐ.Formula V}
+variable {X X' : Set (Bₐ.Formula V)} {α β : Bₐ.Formula V}
 
 lemma singleton (α : Bₐ.Formula V) : ({α} : Set _) |~ α := by
   refine' ⟨0, ⟨![α], fun k => Or.inl _, _⟩⟩
@@ -119,8 +145,16 @@ lemma mono (hX : X ⊆ X') (h : X |~ α) : X' |~ α := by
     (fun hk => Or.inr hk),
     p.conclusion⟩⟩
 
-lemma mp (hα : X |~ α) (hαβ : X |~ α ⟶ β) : X |~ β := by sorry
-  -- need to concat the proofs of α, α ⟶ β, and append β
+/-- Modus ponens. -/
+lemma mp (hα : X |~ α) (hαβ : X |~ α ⟶ β) : X |~ β := by
+  have ⟨n, ⟨p⟩⟩ := hα
+  have ⟨m, ⟨q⟩⟩ := hαβ
+  let r := p.append q
+  rw [← Set.union_self X]
+  refine' ⟨n + 1 + m + 1, ⟨r.cons₂ ⟨n, _, n + 1 + m, Nat.le.refl, _⟩⟩⟩
+  · rw [add_assoc]
+    exact Nat.le_add_right n (1 + m)
+  · rw [Fin.cast_nat_eq_last, r.conclusion, p.append_last_left q]
 
 /-- Lemma 6.2.a. -/
 lemma contrapositive (h : X |~ α ⟶ ~β) : X |~ β ⟶ ~α := by sorry

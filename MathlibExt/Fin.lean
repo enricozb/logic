@@ -27,4 +27,10 @@ theorem init'_castLT (q : Fin n → α) (h : n' < n) (i : Fin n) (hi : i.val < n
 theorem init'_coe (q : Fin n → α) (h : n' < n) (i : Fin n') :
     init' q h i = q ⟨i.val, i.prop.trans h⟩ := rfl
 
+theorem append_last (a : Fin (m + 1) → α) (b : Fin (n + 1) → α) :
+    Fin.append a b (Fin.last (m + 1 + n)) = b (Fin.last n) := by
+  simp only [append, addCases, val_last, add_lt_iff_neg_left, subNat, coe_cast,
+    add_tsub_cancel_left, eq_rec_constant]
+  rfl
+
 end Fin
